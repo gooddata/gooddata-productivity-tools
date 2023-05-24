@@ -1,0 +1,3 @@
+boto3~=1.26.152
+gooddata_sdk==1.17.0
+requests==2.31.0

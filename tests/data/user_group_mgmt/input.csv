@@ -1,0 +1,5 @@
+user_group_id,user_group_name,parent_user_groups,is_active
+ug_1,Admins,,True
+ug_2,Developers,ug_1,True
+ug_3,Testers,ug_1|ug_2,True
+ug_4,TemporaryAccess,ug_2,False

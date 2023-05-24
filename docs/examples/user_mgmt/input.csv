@@ -1,0 +1,8 @@
+user_id, firstname, lastname, email, auth_id, user_groups, is_active
+jozef.mrkva,jozef,mrkva,jozef.mrkva@test.com,auth_id_1,,True
+bartolomej.brokolica,,,,,,False
+peter.pertzlen,peter,pertzlen,peter.pertzlen@test.com,auth_id_3,ug_1|ug_2,True
+zoltan.zeler,zoltan,zeler,zoltan.zeler@test.com,auth_id_4,ug_1,True
+kristian.kalerab,kristian,kalerab,,auth_id_5,,True
+richard.cvikla,,,richard.cvikla@test.com,auth_id_6,ug_1|ug_2,False
+adam.avokado,,,,auth_id_7,,False

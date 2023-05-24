@@ -1,0 +1,11 @@
+user_id,ug_id,ws_id,ws_permission,is_active
+user_1,,ws_id_1,ANALYZE,True
+user_1,,ws_id_1,VIEW,False
+user_1,,ws_id_2,MANAGE,True
+user_2,,ws_id_1,ANALYZE,True
+user_2,,ws_id_2,MANAGE,True
+,ug_1,ws_id_1,ANALYZE,True
+,ug_1,ws_id_1,VIEW,True
+,ug_1,ws_id_1,MANAGE,False
+,ug_2,ws_id_1,ANALYZE,True
+,ug_2,ws_id_2,MANAGE,True

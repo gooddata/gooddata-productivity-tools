@@ -1,0 +1,23 @@
+[tool.black]
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+
+[[tool.mypy.overrides]]
+module = [
+    "boto3.*",
+    "gooddata_api_client.*",
+    "gooddata_sdk.*",
+    "pytest.*",
+    "yaml.*",
+    "jmespath.*",
+    "moto.*",
+    "gooddata_api_client.*",
+    "requests.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+# Aligned with the default line length of Black
+line-length = 88

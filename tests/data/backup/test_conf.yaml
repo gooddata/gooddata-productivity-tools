@@ -1,0 +1,4 @@
+storage_type: s3
+storage:
+  bucket: some-s3-bucket
+  backup_path: some/s3/backup/path/org_id/

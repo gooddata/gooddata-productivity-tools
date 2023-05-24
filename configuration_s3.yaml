@@ -1,0 +1,5 @@
+storage_type: s3
+storage:
+  bucket: gdc-ms-dev-eu
+  backup_path: subfolder1/subfolder2/backups
+  profile: services

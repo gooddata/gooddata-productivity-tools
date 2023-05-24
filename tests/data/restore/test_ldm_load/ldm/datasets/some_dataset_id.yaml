@@ -1,0 +1,15 @@
+grain:
+  - id: some_dataset_id.some_id
+    type: attribute
+id: some_dataset_id
+references:
+  - identifier:
+      id: some_ref_id
+      type: dataset
+    multivalue: false
+    sourceColumns:
+      - country_id
+title: Test Dataset
+workspaceDataFilterColumns:
+  - dataType: STRING
+    name: wdf__country

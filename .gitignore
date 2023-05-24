@@ -1,0 +1,26 @@
+.idea
+.vscode
+.venv*
+venv/
+.secrets
+__pycache__
+*.egg-info
+.DS_Store
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
