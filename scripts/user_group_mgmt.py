@@ -227,8 +227,9 @@ class UserGroupManager:
     @staticmethod
     def _is_changed(group: TargetUserGroup, existing_group: CatalogUserGroup) -> bool:
         """Checks if user group has some changes and needs to be updated."""
+        group.parent_user_groups.sort()
         parents_changed = (
-            group.parent_user_groups.sort() != existing_group.get_parents.sort()
+            group.parent_user_groups != existing_group.get_parents
         )
         name_changed = group.user_group_name != existing_group.name
         return parents_changed or name_changed
@@ -246,7 +247,8 @@ class UserGroupManager:
             self.sdk.catalog_user.create_or_update_user_group(catalog_user_group)
             logger.info(f"Succeeded to {action} user group {group_id}")
         except Exception as e:
-            logger.error(f"Failed to {action} user group {group_id}: {e}")
+            message = e.args[0] if e.args else eval(e.body)["detail"]
+            logger.error(f"Failed to {action} user group {group_id}: {message}")
 
     def _create_missing_user_groups(self, group_ids_to_create) -> None:
         """Provisions user groups that don't exist."""
@@ -281,7 +283,7 @@ class UserGroupManager:
             existing_group = existing_groups[group.user_group_id]
             if self._is_changed(group, existing_group):
                 logger.info(
-                    f"Updating parent user groups of group {group.user_group_id}..."
+                    f"Updating user group {group.user_group_id}..."
                 )
                 self._create_or_update_user_group(
                     group.user_group_id,
@@ -328,7 +330,7 @@ class UserGroupManager:
         group_ids_to_delete = inactive_target_groups.intersection(gd_group_ids)
         self._delete_user_group(group_ids_to_delete)
 
-        logger.info("User management run finished.")
+        logger.info("User group management run finished.")
 
 
 def user_group_mgmt(args):
