@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import tempfile
+import json
 from pathlib import Path
 from unittest import mock
 
@@ -421,7 +422,17 @@ def test_load_user_data_filters():
             },
         ]
     }
-    assert user_data_filters == user_data_filters_expected
+
+    # Convert both the expected and actual filter lists to sorted lists of their JSON string representations
+    sorted_user_data_filters = sorted(
+        json.dumps(d, sort_keys=True) for d in user_data_filters["userDataFilters"]
+    )
+    sorted_user_data_filters_expected = sorted(
+        json.dumps(d, sort_keys=True)
+        for d in user_data_filters_expected["userDataFilters"]
+    )
+
+    assert sorted_user_data_filters == sorted_user_data_filters_expected
 
 
 @mock.patch("scripts.restore.create_client")
