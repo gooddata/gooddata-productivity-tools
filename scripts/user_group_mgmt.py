@@ -228,9 +228,7 @@ class UserGroupManager:
     def _is_changed(group: TargetUserGroup, existing_group: CatalogUserGroup) -> bool:
         """Checks if user group has some changes and needs to be updated."""
         group.parent_user_groups.sort()
-        parents_changed = (
-            group.parent_user_groups != existing_group.get_parents
-        )
+        parents_changed = group.parent_user_groups != existing_group.get_parents
         name_changed = group.user_group_name != existing_group.name
         return parents_changed or name_changed
 
@@ -247,7 +245,10 @@ class UserGroupManager:
             self.sdk.catalog_user.create_or_update_user_group(catalog_user_group)
             logger.info(f"Succeeded to {action} user group {group_id}")
         except Exception as e:
-            message = e.args[0] if e.args else eval(e.body)["detail"]
+            if hasattr(e, "body") and e.body:
+                message = eval(e.body).get("detail", e)
+            else:
+                message = e.args[0] if e.args else str(e)
             logger.error(f"Failed to {action} user group {group_id}: {message}")
 
     def _create_missing_user_groups(self, group_ids_to_create) -> None:
@@ -282,9 +283,7 @@ class UserGroupManager:
         for group in groups_to_update:
             existing_group = existing_groups[group.user_group_id]
             if self._is_changed(group, existing_group):
-                logger.info(
-                    f"Updating user group {group.user_group_id}..."
-                )
+                logger.info(f"Updating user group {group.user_group_id}...")
                 self._create_or_update_user_group(
                     group.user_group_id,
                     group.user_group_name,

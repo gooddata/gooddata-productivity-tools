@@ -408,13 +408,13 @@ def test_load_user_data_filters():
     user_data_filters_expected = {
         "userDataFilters": [
             {
-                "id": "datafilter2",
+                "id": "datafilter4",
                 "maql": '{label/campaign_channels.category} = "1"',
                 "title": "Status filter",
                 "user": {"id": "5c867a8a-12af-45bf-8d85-c7d16bedebd1", "type": "user"},
             },
             {
-                "id": "datafilter4",
+                "id": "datafilter2",
                 "maql": '{label/campaign_channels.category} = "1"',
                 "title": "Status filter",
                 "user": {"id": "5c867a8a-12af-45bf-8d85-c7d16bedebd1", "type": "user"},
