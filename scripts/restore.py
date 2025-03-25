@@ -19,6 +19,8 @@ from gooddata_sdk import (
     GoodDataSdk,
     CatalogDeclarativeAnalytics,
     CatalogDeclarativeModel,
+    CatalogDeclarativeFilterView,
+    CatalogDeclarativeAutomation,
 )
 
 BEARER_TKN_PREFIX = "Bearer"
@@ -349,6 +351,126 @@ class RestoreWorker:
             logger.error("Failed to retrieve contents of user_data_filters folder.")
             raise BackupRestoreError(type(e).__name__)
 
+    def _load_and_put_filter_views(self, ws_id: str, src_path: Path) -> None:
+        """Loads and puts filter views into GoodData workspace."""
+        filter_views: list[CatalogDeclarativeFilterView] = []
+        if not (src_path / "filter_views").exists():
+            # Skip if the filter_views directory does not exist
+            return
+
+        for file in Path(src_path / "filter_views").iterdir():
+            filter_view_content: dict[str, Any] = dict(self._safe_load_yaml(file))
+            filter_view: CatalogDeclarativeFilterView = (
+                CatalogDeclarativeFilterView.from_dict(filter_view_content)
+            )
+            filter_views.append(filter_view)
+
+        if filter_views:
+            self._sdk.catalog_workspace.put_declarative_filter_views(
+                ws_id, filter_views
+            )
+
+    def _load_and_put_declarative_automations(self, ws_id: str, src_path: Path) -> None:
+        """Loads and puts automations into GoodData workspace."""
+        # TODO: This should potentially replace the _load_and_post_automations method
+        # once the SDK methods are working properly. Currently the CatalogDeclarativeAutomation
+        # object is received without relationships attribute, which means the automation is
+        # created created in Panther, but is not applied to anything.
+
+        automations_folder_path = Path(src_path / "automations")
+        if not automations_folder_path.exists():
+            # Skip if the automations directory does not exist
+            return
+
+        automations: list[CatalogDeclarativeAutomation] = []
+
+        for file in automations_folder_path.iterdir():
+            automation_content: dict[str, Any] = dict(self._safe_load_yaml(file))
+            automation: CatalogDeclarativeAutomation = (
+                CatalogDeclarativeAutomation.from_dict(automation_content)
+            )
+            automations.append(automation)
+
+        if automations:
+            self._sdk.catalog_workspace.put_declarative_automations(ws_id, automations)
+
+    def _load_and_post_automations(self, ws_id: str, source_path: Path) -> None:
+        """Loads automations from specified json file and creates them in the workspace."""
+        # First, all automations are deleted. Otherwise attempts to create automations with existing
+        # IDs will return a 400 error ("Resource with the same ID already exists").
+        self._delete_all_automations(ws_id)
+
+        # Load automations from JSON
+        path_to_json: Path = Path(source_path, "automations", "automations.json")
+
+        if not (source_path.exists() and path_to_json.exists()):
+            # Both the fodler and the file must exist, otherwise skip
+            return
+
+        data: dict = self._load_json(path_to_json)
+        automations: list[dict] = data["data"]
+
+        for automation in automations:
+            self._post_automation(ws_id, automation)
+
+    def _delete_all_automations(self, ws_id: str) -> None:
+        """Deletes all automations in the workspace."""
+        automations: list[CatalogDeclarativeAutomation] = (
+            self._sdk.catalog_workspace.get_declarative_automations(ws_id)
+        )
+        for automation in automations:
+            requests.delete(
+                f"{self._api.endpoint}/entities/workspaces/{ws_id}/automations/{automation.id}",
+                headers={
+                    "Authorization": f"{BEARER_TKN_PREFIX} {self._api.api_token}",
+                    "Content-Type": "application/vnd.gooddata.api+json",
+                },
+            )
+
+    def _post_automation(self, ws_id: str, automation: dict) -> None:
+        """Posts a scheduled export to the workspace."""
+        attributes: dict = automation["attributes"]
+        relationships: dict = automation["relationships"]
+        id: str = automation["id"]
+
+        if attributes.get("schedule"):
+            if attributes["schedule"].get("cronDescription"):
+                # the cron description attribute is causing a 500 error ("No mapping found...")
+                del attributes["schedule"]["cronDescription"]
+
+        response: requests.Response = requests.post(
+            f"{self._api.endpoint}/entities/workspaces/{ws_id}/automations",
+            headers={
+                "Authorization": f"{BEARER_TKN_PREFIX} {self._api.api_token}",
+                "Content-Type": "application/vnd.gooddata.api+json",
+            },
+            data=json.dumps(
+                {
+                    "data": {
+                        "attributes": attributes,
+                        "id": id,
+                        "type": "automation",
+                        "relationships": relationships,
+                    }
+                },
+            ),
+        )
+
+        if response.status_code != 201:
+            logger.error(
+                f"Failed to post automation ({response.status_code}): {response.text}"
+            )
+
+    def _safe_load_yaml(self, path: Path) -> Any:
+        """Safely loads a yaml file at the given path."""
+        with open(path, "r") as f:
+            return yaml.safe_load(f)
+
+    def _load_json(self, path: Path) -> Any:
+        """Loads a json file at the given path."""
+        with open(path, "r") as f:
+            return json.load(f)
+
     @staticmethod
     def _check_workspace_is_valid(src_path: Path) -> None:
         """Checks if the workspace layout is valid."""
@@ -417,6 +539,8 @@ class RestoreWorker:
             user_data_filters = self._load_user_data_filters(src_path)
             self._put_workspace_layout(ws_id, workspace)
             self._put_user_data_filters(ws_id, user_data_filters)
+            self._load_and_put_filter_views(ws_id, src_path)
+            self._load_and_post_automations(ws_id, src_path)
             logger.info(f"Finished backup restore of {ws_id} from {ws_path}.")
         except BackupRestoreError as e:
             logger.error(

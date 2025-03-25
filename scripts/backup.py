@@ -12,12 +12,11 @@ import tempfile
 import yaml
 from typing import Any, Optional, TypeAlias, Type
 
-
 import boto3
 from pathlib import Path
 import gooddata_api_client
 from gooddata_sdk import __version__ as sdk_version
-from gooddata_sdk import GoodDataSdk
+from gooddata_sdk import GoodDataSdk, CatalogDeclarativeAutomation
 
 
 TIMESTAMP_SDK_FOLDER = (
@@ -289,6 +288,89 @@ def store_user_data_filters(
         write_to_yaml(udf_file_path, filter)
 
 
+def move_folder(source: Path, destination: Path) -> None:
+    """Moves the source folder to the destination."""
+    shutil.move(source, destination)
+
+
+def get_automations_from_api(api: GDApi, ws_id: str) -> Any:
+    """Returns automations for the workspace as JSON."""
+    response: requests.Response = requests.get(
+        f"{api.endpoint}/entities/workspaces/{ws_id}/automations?include=ALL",
+        headers={
+            "Authorization": f"{BEARER_TKN_PREFIX} {api.api_token}",
+            "Content-Type": "application/vnd.gooddata.api+json",
+        },
+    )
+    content: Any = response.json()
+
+    return content
+
+
+def store_automations(api: GDApi, export_path: Path, org_id: str, ws_id: str) -> None:
+    """Stores the automations in the specified export path."""
+    # Get the automations from the API
+    automations: Any = get_automations_from_api(api, ws_id)
+
+    automations_folder_path: Path = Path(
+        export_path, "gooddata_layouts", org_id, "workspaces", ws_id, "automations"
+    )
+
+    automations_file_path: Path = Path(automations_folder_path, "automations.json")
+
+    os.mkdir(automations_folder_path)
+
+    # Store the automations in a JSON file
+    with open(automations_file_path, "w") as f:
+        json.dump(automations, f)
+
+
+def store_declarative_automations(
+    sdk: GoodDataSdk, export_path: Path, org_id: str, ws_id: str
+) -> None:
+    """Stores the declarative automations in the specified export path."""
+    # TODO: Currently not working because of a bug in the SDK. There is an alternative way to
+    # get the automations from the API, which is implemented here, but it will be better to use
+    # the SDK method once the bug is fixed.
+
+    # Construct path to automations folder to put it in the same subfolder as the analytics model
+    automations_path: Path = Path(
+        export_path, "gooddata_layouts", org_id, "workspaces", ws_id, "automations"
+    )
+    os.mkdir(automations_path)
+
+    # Get the automations via the SDK
+    automations: list[CatalogDeclarativeAutomation] = (
+        sdk.catalog_workspace.get_declarative_automations(ws_id)
+    )
+
+    # Store the automations
+    for automation in automations:
+        with open(f"{automations_path}/{automation.id}.yaml", "w") as f:
+            f.write(yaml.dump(automation.to_dict()))
+
+
+def store_declarative_filter_views(
+    sdk: GoodDataSdk, export_path: Path, org_id: str, ws_id: str
+) -> None:
+    """Stores the filter views in the specified export path."""
+    # Get the filter views YAML files from the API
+    sdk.catalog_workspace.store_declarative_filter_views(ws_id, export_path)
+
+    # Move filter views to the subfolder containing analytics model
+    move_folder(
+        Path(export_path, "gooddata_layouts", org_id, "filter_views"),
+        Path(
+            export_path,
+            "gooddata_layouts",
+            org_id,
+            "workspaces",
+            ws_id,
+            "filter_views",
+        ),
+    )
+
+
 def get_workspace_export(
     sdk: GoodDataSdk,
     api: GDApi,
@@ -318,6 +400,9 @@ def get_workspace_export(
 
             try:
                 sdk.catalog_workspace.store_declarative_workspace(ws_id, export_path)
+                store_declarative_filter_views(sdk, export_path, org_id, ws_id)
+                store_automations(api, export_path, org_id, ws_id)
+
                 store_user_data_filters(user_data_filters, export_path, org_id, ws_id)
                 logger.info(f"Stored export for {ws_id}")
                 exported = True
