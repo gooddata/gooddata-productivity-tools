@@ -1,5 +1,5 @@
 # GD Workspace backup restore
-Tool which restores one, or more, workspace analytical model (AM), logical data models (LDM) and user data filters (UDF) from source backup archives in an incremental manner.
+Tool which restores one, or more, workspace analytical model (AM), logical data models (LDM) and user data filters (UDF), filter views and automations from source backup archives in an incremental manner.
 
 The backups contain declarative definitions of AM, LDM and UDFs which are unarchived, loaded into memory and finally put into the target GD workspace.
 

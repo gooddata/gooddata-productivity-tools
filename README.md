@@ -4,7 +4,7 @@ This repository contains tools that help with GoodData Cloud/CN workspace manage
 This section of the documentation contains information on how to set up the environment and relevant authentication files. At the end of the Tools section, there is more specific documentation for each tool. The steps mentioned here are shared between them.
 
 ## Requirements
-Python 3.10+
+Python 3.11
 
 Depending on your environment, the statements can start either as
 ```sh
@@ -153,6 +153,11 @@ To run either of the mentioned tools locally, just call the tool with a target d
 mypy scripts
 ```
 
+To check that the code styling will pass pre-merge checks when creating a pull request, run:
+```sh
+tox -e lint
+```
+
 
 ### Testing
 The tooling test suite makes use of some third party tools, such as `pytest`, `tox`, and `moto`.
@@ -165,6 +170,9 @@ pytest .
 
 
 ### Tox
+
+The pre-merge checks run via GitHub actions use tox to verify the code style and test cases.
+
 To run the test suite, linters and type checks locally you can also use `tox`.
 
 To check everything at once, ensure youre in the repository's root directory and simply call:

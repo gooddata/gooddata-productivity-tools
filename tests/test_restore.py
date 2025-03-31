@@ -225,9 +225,12 @@ def test_restore_empty_ws(zipfile):
         os.mkdir(tempdir / "gooddata_layouts" / "ldm")
         os.mkdir(tempdir / "gooddata_layouts" / "analytics_model")
         os.mkdir(tempdir / "gooddata_layouts" / "user_data_filters")
+        os.mkdir(tempdir / "gooddata_layouts" / "filter_views")
+        os.mkdir(tempdir / "gooddata_layouts" / "automations")
 
     zipfile.return_value.__enter__.return_value.extractall = create_empty_ws
     sdk = mock.Mock()
+    sdk.catalog_workspace.get_declarative_automations.return_value = []
     api = mock.Mock()
     storage = mock.Mock()
     ws_paths = {"ws_id": "some/ws/path"}
@@ -281,6 +284,7 @@ def test_incremental_restore(_, _load_user_data_filters, create_backups_in_bucke
     ldm, ws_catalog = prepare_catalog_mocks()
     ws_catalog.load_ldm_from_disk.return_value = ldm
     sdk = mock.Mock()
+    sdk.catalog_workspace.get_declarative_automations.return_value = []
     api = mock.Mock()
     sdk.catalog_workspace_content = ws_catalog
 
@@ -325,6 +329,7 @@ def test_incremental_restore_different_ws_source(
     ws_catalog.load_ldm_from_disk.return_value = ldm
     sdk = mock.Mock()
     sdk.catalog_workspace_content = ws_catalog
+    sdk.catalog_workspace.get_declarative_automations.return_value = []
 
     api = mock.Mock()
 
@@ -371,6 +376,7 @@ def test_incremental_restore_one_succeeds_one_fails(
     ws_catalog.load_ldm_from_disk.side_effect = [ldm, Exception()]
     sdk = mock.Mock()
     sdk.catalog_workspace_content = ws_catalog
+    sdk.catalog_workspace.get_declarative_automations.return_value = []
 
     api = mock.Mock()
 
@@ -448,6 +454,7 @@ def test_e2e(_, _load_user_data_filters, create_client, create_backups_in_bucket
     # On load_ldm_from_disk: Success, Fail, Success
     ws_catalog.load_ldm_from_disk.side_effect = [ldm, Exception(), ldm]
     sdk = mock.Mock()
+    sdk.catalog_workspace.get_declarative_automations.return_value = []
     sdk.catalog_workspace_content = ws_catalog
     sdk.catalog_workspace.list_workspaces.return_value = [
         MockGdWorkspace(id=f"ws_id_{i}") for i in range(1, 4)

@@ -1,6 +1,6 @@
 # GD Export workspace definition
 
-Tool which exports / creates a backup of one or more workspaces - their logical data model (LDM), analytical model (AM) and user data filters (UDF). Backups are stored either locally or can be uploaded to S3 bucket.
+Tool which exports / creates a backup of one or more workspaces - their logical data model (LDM), analytical model (AM),  user data filters (UDF), filter views and automations. Backups are stored either locally or can be uploaded to S3 bucket.
 
 ## Usage
 The tool requires the following arguments on input:
