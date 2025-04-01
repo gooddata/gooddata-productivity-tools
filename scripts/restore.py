@@ -396,16 +396,15 @@ class RestoreWorker:
 
     def _load_and_post_automations(self, ws_id: str, source_path: Path) -> None:
         """Loads automations from specified json file and creates them in the workspace."""
-        # First, all automations are deleted. Otherwise attempts to create automations with existing
-        # IDs will return a 400 error ("Resource with the same ID already exists").
-        self._delete_all_automations(ws_id)
-
         # Load automations from JSON
         path_to_json: Path = Path(source_path, "automations", "automations.json")
 
         if not (source_path.exists() and path_to_json.exists()):
-            # Both the fodler and the file must exist, otherwise skip
+            # Both the folder and the file must exist, otherwise skip
             return
+
+        # Delete all automations from the workspace and restore the automations from the backup.
+        self._delete_all_automations(ws_id)
 
         data: dict = self._load_json(path_to_json)
         automations: list[dict] = data["data"]
