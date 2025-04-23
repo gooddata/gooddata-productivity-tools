@@ -24,3 +24,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+
+**/local_backups/**
+**/*.yaml
+**/*.csv

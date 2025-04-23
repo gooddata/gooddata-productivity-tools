@@ -321,8 +321,9 @@ def store_automations(api: GDApi, export_path: Path, org_id: str, ws_id: str) ->
     os.mkdir(automations_folder_path)
 
     # Store the automations in a JSON file
-    with open(automations_file_path, "w") as f:
-        json.dump(automations, f)
+    if len(automations["data"]) > 0:
+        with open(automations_file_path, "w") as f:
+            json.dump(automations, f)
 
 
 def store_declarative_automations(
