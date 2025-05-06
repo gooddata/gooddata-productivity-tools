@@ -6,14 +6,31 @@ Tool which exports / creates a backup of one or more workspaces - their logical 
 The tool requires the following arguments on input:
 - `ws_csv` - a path to a csv file defining target workspace IDs to restore to, and a backup source paths
 - `conf` - a path to a configuration file containing information required for accessing the backup source storage
+- `--input-type`, `-t` - specfication of how the input file from the first argument is handled. This argument is optional.
 
-Use the tool like so:
+### Input type
+
+The `input-type` argument is optional and has three options:
+
+`list-of-workspaces` is the default option. The data in the input file is treated as an exhaustive list of workspaces to back up. This is also what will happen if the argument is omitted entirely
+
+Use `list-of-parents` when the input file contains a list of parent workspaces and you wish to back up the entire hierarchy. For each workspace ID in the input, all of its direct and indirect children are included in the backup, as well as the parent workspaces themselves.
+
+If the `entire-organization` option is selected, the script will back up all the workspaces within the organization. If this option is selected, you do not need to provide the `ws_csv` argument as it will be ignored. If a `ws_csv` value is provided, the script will log a warning message, but will proceed to back up the organization.
+
+### Usage examples
+
+If you want to back up a list of specific workspaces, run:
 
 ```sh
 python scripts/backup.py ws_csv conf
 ```
 
-Where ws_csv refers to input csv and conf to configuration file in yaml format.
+Where ws_csv refers to input csv and conf to configuration file in yaml format. This would be equivalent to running:
+
+```sh
+python scripts/backup.py ws_csv conf -t list-of-workspaces
+```
 
 For example, if you have csv file named "example_input.csv" in the folder from which you are executing the python command and configuration file named "example_conf.yaml" in subfolder relative to the folder you are executing the script from named "subfolder", the execution could look like this:
 
@@ -21,6 +38,19 @@ For example, if you have csv file named "example_input.csv" in the folder from w
 python scripts/backup.py example_input.csv subfolder/example_conf.yaml
 ```
 
+If you want to back up a specific hierarchy under a parent workspace, prepare the list of parents, store it in a csv file (named for example `parents.csv`) and run:
+
+```sh
+python scripts/backup.py parents.csv conf.yaml -t list-of-parents
+```
+
+If you want to back up all the workspaces in the organization, run:
+
+```sh
+python scripts/backup.py conf.yaml -t entire-organization
+```
+
+Note that in this case, you do not need to provide the `ws_csv` argument as no list is required.
 
 To show the help for using arguments, call:
 ```sh
