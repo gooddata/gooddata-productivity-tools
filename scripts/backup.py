@@ -6,18 +6,24 @@ import datetime
 import json
 import logging
 import os
-import requests
 import shutil
 import tempfile
-import yaml
-from typing import Any, Optional, TypeAlias, Type
-
-import boto3
 from pathlib import Path
-import gooddata_api_client
-from gooddata_sdk import __version__ as sdk_version
-from gooddata_sdk import GoodDataSdk, CatalogDeclarativeAutomation
+from typing import Any, Iterator, Optional, Type, TypeAlias
 
+import boto3  # type: ignore[import]
+import requests
+import yaml
+from gooddata_api_client.exceptions import NotFoundException  # type: ignore[import]
+from gooddata_sdk import GoodDataSdk  # type: ignore[import]
+from gooddata_sdk import __version__ as sdk_version  # type: ignore[import]
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.automation import (
+    CatalogDeclarativeAutomation,
+)
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.workspace import (
+    CatalogDeclarativeWorkspace,
+    CatalogDeclarativeWorkspaces,
+)
 
 TIMESTAMP_SDK_FOLDER = (
     str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -56,8 +62,11 @@ class BackupRestoreConfig:
 
 
 class BackupStorage(abc.ABC):
+    def __init__(self, conf: BackupRestoreConfig):
+        return
+
     @abc.abstractmethod
-    def export(self, folder, org):
+    def export(self, folder, org_id):
         """Exports the content of the folder to the storage."""
         raise NotImplementedError
 
@@ -68,7 +77,7 @@ class S3Storage(BackupStorage):
         self._profile = self._config.get("profile", "default")
         self._session = self._create_boto_session(self._profile)
         self._api = self._session.resource("s3")
-        self._bucket = self._api.Bucket(self._config["bucket"])
+        self._bucket = self._api.Bucket(self._config["bucket"])  # type: ignore [missing library stubs]
         suffix = "/" if not self._config["backup_path"].endswith("/") else ""
         self._backup_path = self._config["backup_path"] + suffix
 
@@ -206,8 +215,12 @@ def create_api_client_from_profile(profile: str, profile_config: Path) -> GDApi:
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
-        "ws_csv", help="Path to csv with IDs of GD workspaces to backup.", type=Path
+        "ws_csv",
+        help="Path to csv with IDs of GD workspaces to backup.",
+        type=Path,
+        nargs="?",
     )
     parser.add_argument(
         "conf", help="Path to backup storage configuration file.", type=Path
@@ -225,6 +238,14 @@ def create_parser() -> argparse.ArgumentParser:
         type=str,
         default="default",
         help='GoodData profile to use. If not profile is provided, "default" is used.',
+    )
+    parser.add_argument(
+        "-t",
+        "--input-type",
+        type=str,
+        choices=["list-of-workspaces", "list-of-parents", "entire-organization"],
+        default="list-of-workspaces",
+        help="Type of input to use as the base of the backup. If not provided, `list-of-workspaces` is used as default.",
     )
 
     return parser
@@ -372,49 +393,132 @@ def store_declarative_filter_views(
     )
 
 
+def read_csv_input_for_backup(file_path: str) -> list[str]:
+    """Reads the input CSV file and returns its content from the first column as a list of string."""
+
+    with open(file_path) as csv_file:
+        reader: Iterator[list[str]] = csv.reader(csv_file, skipinitialspace=True)
+
+        try:
+            # Skip the header
+            headers = next(reader)
+
+            if len(headers) > 1:
+                raise ValueError(
+                    "Input file contains more than one column. Please check the input and try again."
+                )
+
+        except StopIteration:
+            # Raise an error if the iterator is empty
+            raise ValueError("No content found in the CSV file.")
+
+        # Read the content
+        content = [row[0] for row in reader]
+
+        # If the content is empty (no rows), raise an error
+        if not content:
+            raise ValueError("No workspaces found in the CSV file.")
+
+    return content
+
+
+def get_recursive_children(
+    all_workspaces: list[CatalogDeclarativeWorkspace], parent_id: str
+) -> list[str]:
+    """Recursively gets the children of the specified parent workspace."""
+    children = []
+    for workspace in all_workspaces:
+        if workspace.parent and workspace.parent.id == parent_id:
+            children.append(workspace.id)
+            children.extend(get_recursive_children(all_workspaces, workspace.id))
+
+    return children
+
+
+def get_workspaces_to_backup(
+    input_type: str, path_to_csv: str, sdk: GoodDataSdk
+) -> list[str]:
+    """Returns the list of workspace IDs to back up based on the input type."""
+    if input_type == "list-of-workspaces":
+        return read_csv_input_for_backup(path_to_csv)
+
+    else:
+        declarative_workspaces: CatalogDeclarativeWorkspaces = (
+            sdk.catalog_workspace.get_declarative_workspaces()
+        )
+
+        workspaces: list[CatalogDeclarativeWorkspace] = (
+            declarative_workspaces.workspaces
+        )
+
+        if not workspaces:
+            raise RuntimeError("No workspaces found in the organization.")
+
+        if input_type == "list-of-parents":
+            list_of_parents = read_csv_input_for_backup(path_to_csv)
+            list_of_children: list[str] = []
+
+            for parent in list_of_parents:
+                list_of_children.extend(get_recursive_children(workspaces, parent))
+
+            if not list_of_children:
+                raise RuntimeError(
+                    "No child workspaces found for the provided list of parents."
+                )
+
+            # Include the parent workspaces in the backup
+            return list_of_parents + list_of_children
+
+        if input_type == "entire-organization":
+            list_of_workspaces: list[str] = []
+
+            for workspace in workspaces:
+                list_of_workspaces.append(workspace.id)
+
+            return list_of_workspaces
+
+    raise RuntimeError("Invalid input type provided.")
+
+
 def get_workspace_export(
     sdk: GoodDataSdk,
     api: GDApi,
-    storage_type: str,
     local_target_path: str,
     org_id: str,
+    workspaces_to_export: list[str],
 ) -> None:
     """
-    Iterate over all workspaces in the input ws_csv and store their
-        declarative_workspace and their respective user data filters.
+    Iterate over all workspaces in the workspaces_to_export list and store
+    their declarative_workspace and their respective user data filters.
     """
-    with open(args.ws_csv) as csvfile:
-        workspace_list = csv.reader(csvfile, skipinitialspace=True)
-        next(workspace_list, None)
-        exported = False
-        for row in workspace_list:
-            ws_id = row[0]
-            export_path = Path(local_target_path, org_id, ws_id, TIMESTAMP_SDK_FOLDER)
+    exported = False
+    for ws_id in workspaces_to_export:
+        export_path = Path(local_target_path, org_id, ws_id, TIMESTAMP_SDK_FOLDER)
 
-            user_data_filters = get_user_data_filters(api, ws_id)
-            if not user_data_filters:
-                logger.error(
-                    f"Skipping backup of {ws_id} - user data filters returned None."
-                )
-                logger.error(f"Check if {ws_id} exists and the API is functional")
-                continue
-
-            try:
-                sdk.catalog_workspace.store_declarative_workspace(ws_id, export_path)
-                store_declarative_filter_views(sdk, export_path, org_id, ws_id)
-                store_automations(api, export_path, org_id, ws_id)
-
-                store_user_data_filters(user_data_filters, export_path, org_id, ws_id)
-                logger.info(f"Stored export for {ws_id}")
-                exported = True
-            except gooddata_api_client.exceptions.NotFoundException:
-                logger.error(f"Workspace {ws_id} does not exist. Skipping.")
-
-        if not exported:
-            raise RuntimeError(
-                "None of the workspaces were exported."
-                "Check source file and their existence."
+        user_data_filters = get_user_data_filters(api, ws_id)
+        if not user_data_filters:
+            logger.error(
+                f"Skipping backup of {ws_id} - user data filters returned None."
             )
+            logger.error(f"Check if {ws_id} exists and the API is functional")
+            continue
+
+        try:
+            sdk.catalog_workspace.store_declarative_workspace(ws_id, export_path)
+            store_declarative_filter_views(sdk, export_path, org_id, ws_id)
+            store_automations(api, export_path, org_id, ws_id)
+
+            store_user_data_filters(user_data_filters, export_path, org_id, ws_id)
+            logger.info(f"Stored export for {ws_id}")
+            exported = True
+        except NotFoundException:
+            logger.error(f"Workspace {ws_id} does not exist. Skipping.")
+
+    if not exported:
+        raise RuntimeError(
+            "None of the workspaces were exported."
+            "Check source file and their existence."
+        )
 
 
 def archive_gooddata_layouts_to_zip(folder: str) -> None:
@@ -456,35 +560,49 @@ def create_client(args: argparse.Namespace) -> tuple[GoodDataSdk, GDApi]:
     )
 
 
-def validate_args(args):
+def validate_args(args: argparse.Namespace) -> None:
     """Validates the arguments provided."""
-    if not os.path.exists(args.ws_csv):
-        raise RuntimeError("Invalid path to csv given.")
+    if args.input_type != "entire-organization":
+        if not args.ws_csv:
+            raise RuntimeError("Path to csv with workspace IDs is required.")
+        if not os.path.exists(args.ws_csv):
+            raise RuntimeError("Invalid path to csv given.")
 
     if not os.path.exists(args.conf):
         raise RuntimeError("Invalid path to backup storage configuration given.")
 
+    if args.input_type == "entire-organization" and args.ws_csv:
+        logger.warning(
+            "Input type is set to 'entire-organization', but a CSV file is provided. "
+            "The CSV file will be ignored."
+        )
 
-def main(args):
+
+def main(args: argparse.Namespace) -> None:
     """Main function for the backup script."""
     sdk, api = create_client(args)
 
-    org_id = sdk.catalog_organization.organization_id
+    org_id: str = sdk.catalog_organization.organization_id
 
-    conf = BackupRestoreConfig(args.conf)
+    conf: BackupRestoreConfig = BackupRestoreConfig(args.conf)
 
-    storage = get_storage(conf.storage_type)(conf)
+    storage_class: Type[BackupStorage] = get_storage(conf.storage_type)
+    storage: BackupStorage = storage_class(conf)
+
+    workspaces_to_export: list[str] = get_workspaces_to_backup(
+        args.input_type, args.ws_csv, sdk
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        get_workspace_export(sdk, api, conf.storage_type, tmpdir, org_id)
+        get_workspace_export(sdk, api, tmpdir, org_id, workspaces_to_export)
 
-        archive_gooddata_layouts_to_zip(Path(tmpdir, org_id))
+        archive_gooddata_layouts_to_zip(str(Path(tmpdir, org_id)))
 
         storage.export(tmpdir, org_id)
 
 
 if __name__ == "__main__":
-    parser = create_parser()
-    args = parser.parse_args()
+    parser: argparse.ArgumentParser = create_parser()
+    args: argparse.Namespace = parser.parse_args()
     validate_args(args)
     main(args)

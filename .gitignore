@@ -28,3 +28,6 @@ cover/
 **/local_backups/**
 **/*.yaml
 **/*.csv
+
+# Include sample and test config files
+!tests/data/backup/test_local_conf.yaml
