@@ -6,7 +6,7 @@ Tool which exports / creates a backup of one or more workspaces - their logical 
 The tool requires the following arguments on input:
 - `ws_csv` - a path to a csv file defining target workspace IDs to restore to, and a backup source paths
 - `conf` - a path to a configuration file containing information required for accessing the backup source storage
-- `--input-type`, `-t` - specfication of how the input file from the first argument is handled. This argument is optional.
+- `--input-type`, `-t` - specification of how the input file from the first argument is handled. This argument is optional.
 
 ### Input type
 
