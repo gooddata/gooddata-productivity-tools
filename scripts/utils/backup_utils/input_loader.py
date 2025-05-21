@@ -10,6 +10,7 @@ from utils.gd_api import (  # type: ignore[import]
     GoodDataRestApiError,
     MaybeResponse,
 )
+from utils.models.batch import Size  # type: ignore[import]
 from utils.models.workspace_response import (  # type: ignore[import]
     Workspace,
     WorkspaceResponse,
@@ -26,9 +27,9 @@ class InputLoader:
     hierarchy_endpoint: str
     all_workspaces_endpoint: str
 
-    def __init__(self, api_client: GDApi, page_size: int) -> None:
+    def __init__(self, api_client: GDApi, page_size: Size) -> None:
         self.api_client = api_client
-        self.page_size = page_size
+        self.page_size = page_size.size
         self.set_endpoints()
 
     def set_endpoints(self) -> None:
