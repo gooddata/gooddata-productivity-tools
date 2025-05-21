@@ -5,22 +5,22 @@ import csv
 import json
 import logging
 import os
+import sys
 import tempfile
 import traceback
-import requests
-import sys
-import yaml
 import zipfile
 from pathlib import Path
-from typing import Any, Optional, TypeAlias, Type
+from typing import Any, Optional, Type, TypeAlias
 
 import boto3
+import requests
+import yaml
 from gooddata_sdk import (
-    GoodDataSdk,
     CatalogDeclarativeAnalytics,
-    CatalogDeclarativeModel,
-    CatalogDeclarativeFilterView,
     CatalogDeclarativeAutomation,
+    CatalogDeclarativeFilterView,
+    CatalogDeclarativeModel,
+    GoodDataSdk,
 )
 
 BEARER_TKN_PREFIX = "Bearer"
@@ -64,6 +64,7 @@ class BackupRestoreConfig:
             return yaml.safe_load(conf)
 
 
+# TODO: storage logic also defined in backup.py, consider moving to utils
 class BackupStorage(abc.ABC):
     """
     Retrieves archive of backed up hierarchical export of workspace declaration.
@@ -147,6 +148,7 @@ MaybeResponse: TypeAlias = Optional[requests.Response]
 
 
 class GDApi:
+    # TODO: also defined in utils, consider importing from there
     def __init__(self, host: str, api_token: str, headers: dict[str, Any] = {}):
         self.endpoint = self._handle_endpoint(host)
         self.api_token = api_token
@@ -369,30 +371,6 @@ class RestoreWorker:
             self._sdk.catalog_workspace.put_declarative_filter_views(
                 ws_id, filter_views
             )
-
-    def _load_and_put_declarative_automations(self, ws_id: str, src_path: Path) -> None:
-        """Loads and puts automations into GoodData workspace."""
-        # TODO: This should potentially replace the _load_and_post_automations method
-        # once the SDK methods are working properly. Currently the CatalogDeclarativeAutomation
-        # object is received without relationships attribute, which means the automation is
-        # created created in Panther, but is not applied to anything.
-
-        automations_folder_path = Path(src_path / "automations")
-        if not automations_folder_path.exists():
-            # Skip if the automations directory does not exist
-            return
-
-        automations: list[CatalogDeclarativeAutomation] = []
-
-        for file in automations_folder_path.iterdir():
-            automation_content: dict[str, Any] = dict(self._safe_load_yaml(file))
-            automation: CatalogDeclarativeAutomation = (
-                CatalogDeclarativeAutomation.from_dict(automation_content)
-            )
-            automations.append(automation)
-
-        if automations:
-            self._sdk.catalog_workspace.put_declarative_automations(ws_id, automations)
 
     def _load_and_post_automations(self, ws_id: str, source_path: Path) -> None:
         """Loads automations from specified json file and creates them in the workspace."""

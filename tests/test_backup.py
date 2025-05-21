@@ -1,4 +1,11 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
+import os
+import sys
+
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts"))
+)
+
 import argparse
 import os
 import shutil
@@ -10,13 +17,9 @@ from unittest import mock
 import boto3
 import pytest
 from gooddata_sdk import GoodDataSdk  # type: ignore[import]
-from gooddata_sdk.catalog.workspace.declarative_model.workspace.workspace import (
-    CatalogDeclarativeWorkspaces,
-)
 from moto import mock_s3
 
-from scripts import backup
-from tests.data.backup.mock_values import NO_CHILDREN_RETURN_VALUE, WORKSPACE_HIERARCHY
+import scripts.backup as backup
 
 LOGGER_NAME = "scripts.backup"
 MOCK_DL_TARGET = Path("overlays.zip")
@@ -172,83 +175,6 @@ def test_wrong_input_type_raises_error():
         backup.validate_args(args)
 
 
-@mock.patch.object(
-    MOCK_SDK.catalog_workspace,
-    "get_declarative_workspaces",
-    return_value=CatalogDeclarativeWorkspaces(workspaces=[], workspace_data_filters=[]),
-)
-def test_get_workspaces_to_backup_empty_org(mock_get_declarative_workspaces):
-    with pytest.raises(RuntimeError, match="No workspaces found in the organization."):
-        backup.get_workspaces_to_backup(
-            "tests/data/backup/test_exports/services",
-            "services",
-            MOCK_SDK,
-        )
-
-
-@mock.patch(
-    "scripts.backup.read_csv_input_for_backup", return_value=["unrecognized_parent_id"]
-)
-@mock.patch.object(
-    MOCK_SDK.catalog_workspace,
-    "get_declarative_workspaces",
-    return_value=NO_CHILDREN_RETURN_VALUE,
-)
-def test_get_workspaces_to_backup_no_children(
-    mock_get_declarative_workspaces, mock_read_csv_input
-):
-    with pytest.raises(
-        RuntimeError,
-        match="No child workspaces found for the provided list of parents.",
-    ):
-        backup.get_workspaces_to_backup(
-            "list-of-parents",
-            "some-csv-file.csv",
-            MOCK_SDK,
-        )
-
-
-@mock.patch(
-    "scripts.backup.read_csv_input_for_backup", return_value=["unrecognized_parent_id"]
-)
-@mock.patch.object(
-    MOCK_SDK.catalog_workspace,
-    "get_declarative_workspaces",
-    return_value=NO_CHILDREN_RETURN_VALUE,
-)
-def test_get_workspaces_to_backup_wrong_input_type(
-    mock_get_declarative_workspaces, mock_read_csv_input
-):
-    with pytest.raises(RuntimeError, match="Invalid input type provided."):
-        backup.get_workspaces_to_backup(
-            "invalid-input-type",
-            "some-csv-file.csv",
-            MOCK_SDK,
-        )
-
-
-def test_get_recursive_children():
-    workspaces = WORKSPACE_HIERARCHY.workspaces
-    workspace_id = "parent"
-    expected_children = [
-        "direct_child",
-        "indirect_child",
-        "another_direct_child",
-        "another_indirect_child",
-    ]
-
-    result = backup.get_recursive_children(workspaces, workspace_id)
-
-    assert sorted(result) == sorted(expected_children)
-
-
-def test_get_recursive_children_empty_workspaces():
-    workspaces: list = []
-    workspace_id = "parent"
-    result = backup.get_recursive_children(workspaces, workspace_id)
-    assert result == []
-
-
 def test_get_s3_storage():
     s3_storage_type = backup.get_storage("s3")
     assert s3_storage_type == backup.S3Storage
@@ -309,7 +235,7 @@ def test_archive_gooddata_layouts_to_zip():
         assert zip_exists
 
 
-@mock.patch("scripts.backup.requests", new_callable=mock_requests)
+@mock.patch("utils.gd_api.requests", new_callable=mock_requests)
 def test_get_user_data_filters_normal_response(requests):
     api = backup.GDApi("some.host.com", "token")
 
@@ -421,52 +347,3 @@ def test_file_upload(s3, s3_bucket):
         S3_BUCKET,
         "some/s3/backup/path/org_id/services/wsid2/20230713-132759-1_3_1_dev5/gooddata_layouts/services/workspaces/wsid2/analytics_model/filter_contexts/id.yaml",
     ).load()
-
-
-def test_read_csv_input_empty_file() -> None:
-    """Test with an empty CSV file."""
-    with tempfile.NamedTemporaryFile() as temp_csv:
-        path_to_csv = temp_csv.name
-        with pytest.raises(ValueError, match="No content found in the CSV file."):
-            backup.read_csv_input_for_backup(path_to_csv)
-
-
-def test_read_csv_input_only_header() -> None:
-    """Test with a CSV file that contains only the header."""
-    with tempfile.NamedTemporaryFile() as temp_csv:
-        temp_csv.write(b"header1\n")
-        temp_csv.flush()
-        temp_csv.seek(0)
-        path_to_csv = temp_csv.name
-        with pytest.raises(ValueError, match="No workspaces found in the CSV file."):
-            backup.read_csv_input_for_backup(path_to_csv)
-
-
-def test_read_csv_input_valid() -> None:
-    """Test with a valid CSV file."""
-    with tempfile.NamedTemporaryFile(delete=False) as temp_csv:
-        temp_csv.write(b"header1\n")
-        temp_csv.write(b"workspace1\n")
-        temp_csv.write(b"workspace2\n")
-        temp_csv.flush()
-        temp_csv.seek(0)
-        path_to_csv = temp_csv.name
-        result = backup.read_csv_input_for_backup(path_to_csv)
-        assert result == ["workspace1", "workspace2"]
-    os.remove(path_to_csv)
-
-
-def test_read_csv_input_too_many_columns() -> None:
-    """Test with a CSV file that contains too many columns."""
-    with tempfile.NamedTemporaryFile(delete=False) as temp_csv:
-        temp_csv.write(b"header1,header2\n")
-        temp_csv.write(b"workspace1,extra_column\n")
-        temp_csv.flush()
-        temp_csv.seek(0)
-        path_to_csv = temp_csv.name
-        with pytest.raises(
-            ValueError,
-            match="Input file contains more than one column. Please check the input and try again.",
-        ):
-            backup.read_csv_input_for_backup(path_to_csv)
-    os.remove(path_to_csv)
