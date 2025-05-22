@@ -1,4 +1,4 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
 import argparse
 import csv
 import logging
@@ -10,7 +10,6 @@ from typing import Any, Iterator, Optional, TypeAlias
 
 import gooddata_sdk as gd_sdk
 from gooddata_api_client.exceptions import NotFoundException
-
 
 USER_TYPE = "user"
 USER_GROUP_TYPE = "userGroup"

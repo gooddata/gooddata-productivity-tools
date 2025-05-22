@@ -1,4 +1,4 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
 import argparse
 import csv
 import logging
@@ -228,9 +228,7 @@ def create_clients(args: argparse.Namespace) -> gd_sdk.GoodDataSdk:
 
     profile_config, profile = args.profile_config, args.profile
     if os.path.exists(profile_config):
-        logger.info(
-            f"Using GoodData profile {profile} " f"sourced from {profile_config}."
-        )
+        logger.info(f"Using GoodData profile {profile} sourced from {profile_config}.")
         sdk = gd_sdk.GoodDataSdk.create_from_profile(profile, profile_config)
         return sdk
 

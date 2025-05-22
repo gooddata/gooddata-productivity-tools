@@ -1,16 +1,16 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
 import argparse
+import json
 import logging
 import os
 import tempfile
-import json
 from pathlib import Path
 from unittest import mock
 
 import boto3
+import gooddata_sdk as gd_sdk
 import pytest
 from moto import mock_s3
-import gooddata_sdk as gd_sdk
 
 from scripts import restore
 

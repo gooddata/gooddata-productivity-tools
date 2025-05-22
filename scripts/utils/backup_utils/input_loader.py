@@ -1,4 +1,4 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
 import csv
 from dataclasses import dataclass
 from typing import Iterator
