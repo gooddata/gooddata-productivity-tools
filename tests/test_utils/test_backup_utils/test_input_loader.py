@@ -38,8 +38,8 @@ def input_loader():
 
 
 def test_process_data_extracts_children_and_subparents():
-    ws1 = Workspace(id="ws1", meta=Meta(hierarchy=Hierarchy(childrenCount=2)))
-    ws2 = Workspace(id="ws2", meta=Meta(hierarchy=Hierarchy(childrenCount=0)))
+    ws1 = Workspace(id="ws1", meta=Meta(hierarchy=Hierarchy(children_count=2)))
+    ws2 = Workspace(id="ws2", meta=Meta(hierarchy=Hierarchy(children_count=0)))
     ws3 = Workspace(id="ws3", meta=None)
 
     result = InputLoader.process_data([ws1, ws2, ws3])
@@ -51,7 +51,8 @@ def test_log_paging_progress_logs_info(mocker):
     response = WorkspaceResponse(
         data=[],
         meta=Meta(
-            page=Page(size=5, totalElements=25, number=1, totalPages=5), hierarchy=None
+            page=Page(size=5, total_elements=25, number=1, total_pages=5),
+            hierarchy=None,
         ),
         links=Links(self="self", next="next"),
     )
@@ -74,8 +75,8 @@ def test_log_paging_progress_no_page(mocker):
 
 
 def test_paginate_calls_fetch_page_and_process_data(input_loader, monkeypatch):
-    ws1 = Workspace(id="ws1", meta=Meta(hierarchy=Hierarchy(childrenCount=1)))
-    ws2 = Workspace(id="ws2", meta=Meta(hierarchy=Hierarchy(childrenCount=0)))
+    ws1 = Workspace(id="ws1", meta=Meta(hierarchy=Hierarchy(children_count=1)))
+    ws2 = Workspace(id="ws2", meta=Meta(hierarchy=Hierarchy(children_count=0)))
     links1 = Links(self="self", next="next_url")
     links2 = Links(self="self", next=None)
     resp1 = WorkspaceResponse(

@@ -1,15 +1,31 @@
-from pydantic import BaseModel  # type: ignore[import] # missing type stub
+from pydantic import (  # type: ignore[import] # missing type stub
+    BaseModel,
+    ConfigDict,
+)
+from pydantic.alias_generators import (  # type: ignore[import] # missing type stub
+    to_camel,
+)
 
 
 class Page(BaseModel):
     size: int
-    totalElements: int
-    totalPages: int
+    total_elements: int
+    total_pages: int
     number: int
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
 
 
 class Hierarchy(BaseModel):
-    childrenCount: int
+    children_count: int
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
 
 
 class Meta(BaseModel):

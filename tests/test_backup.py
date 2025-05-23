@@ -16,7 +16,7 @@ from unittest import mock
 
 import boto3
 import pytest
-from gooddata_sdk import GoodDataSdk  # type: ignore[import]
+from gooddata_sdk.sdk import GoodDataSdk
 from moto import mock_s3
 
 import scripts.backup as backup

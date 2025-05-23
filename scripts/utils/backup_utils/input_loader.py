@@ -98,7 +98,7 @@ class InputLoader:
 
             # if hierarchy is present and has children, append child workspace ID to sub_parents
             if workspace.meta and workspace.meta.hierarchy:
-                if workspace.meta.hierarchy.childrenCount > 0:
+                if workspace.meta.hierarchy.children_count > 0:
                     sub_parents.append(workspace.id)
         return InputLoader._ProcessDataOutput(children, sub_parents)
 
@@ -110,7 +110,7 @@ class InputLoader:
 
         if response.meta.page:
             current_page = response.meta.page.number + 1
-            total_pages = response.meta.page.totalPages
+            total_pages = response.meta.page.total_pages
         else:
             current_page = None
             total_pages = None
@@ -149,6 +149,10 @@ class InputLoader:
 
     def get_all_workspaces(self) -> list[str]:
         """Returns a list of all workspace IDs in the organization."""
+        # TODO: can be optimized - requests can be sent asynchronously.
+        # Use the total number of pages to calculate the number of requests
+        # to be sent. Use semaphore or otherwise limit the number of concurrent
+        # requests to avoid putting too much load on the server.
         logger.info("Fetching all workspaces")
         url = self.all_workspaces_endpoint
 
