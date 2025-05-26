@@ -1,15 +1,14 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
 import argparse
 from dataclasses import dataclass
-from unittest import mock
 from typing import Any, Optional
+from unittest import mock
 
-import pytest
 import gooddata_sdk as gd_sdk
+import pytest
 from gooddata_api_client.exceptions import NotFoundException
 
 from scripts import user_mgmt
-
 
 TEST_CSV_PATH = "tests/data/user_mgmt/input.csv"
 

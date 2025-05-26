@@ -1,29 +1,27 @@
-# (C) 2023 GoodData Corporation
+# (C) 2025 GoodData Corporation
 import abc
 import argparse
-import csv
 import datetime
 import json
-import logging
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Iterator, Optional, Type, TypeAlias
+from typing import Any, Type
 
 import boto3  # type: ignore[import]
 import requests
 import yaml
-from gooddata_api_client.exceptions import NotFoundException  # type: ignore[import]
-from gooddata_sdk import GoodDataSdk  # type: ignore[import]
+from gooddata_api_client.exceptions import NotFoundException
 from gooddata_sdk import __version__ as sdk_version  # type: ignore[import]
-from gooddata_sdk.catalog.workspace.declarative_model.workspace.automation import (
-    CatalogDeclarativeAutomation,
+from gooddata_sdk.sdk import GoodDataSdk  # type: ignore[import]
+from utils.backup_utils.input_loader import InputLoader  # type: ignore[import]
+from utils.gd_api import (  # type: ignore[import]
+    BEARER_TKN_PREFIX,
+    GDApi,
+    GoodDataRestApiError,
 )
-from gooddata_sdk.catalog.workspace.declarative_model.workspace.workspace import (
-    CatalogDeclarativeWorkspace,
-    CatalogDeclarativeWorkspaces,
-)
+from utils.logger import logger  # type: ignore[import]
 
 TIMESTAMP_SDK_FOLDER = (
     str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -31,34 +29,25 @@ TIMESTAMP_SDK_FOLDER = (
     + sdk_version.replace(".", "_")
 )
 
-API_VERSION = "v1"
-BEARER_TKN_PREFIX = "Bearer"
 PROFILES_FILE = "profiles.yaml"
 PROFILES_DIRECTORY = ".gooddata"
 PROFILES_FILE_PATH = Path.home() / PROFILES_DIRECTORY / PROFILES_FILE
 
-FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
-logger = logging.getLogger(__name__)
-logging.getLogger(__name__).setLevel(logging.INFO)
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-ch.setFormatter(logging.Formatter(fmt=FORMAT))
-logger.addHandler(ch)
 
 LAYOUTS_DIR = "gooddata_layouts"
 LDM_DIR = "ldm"
 
-
-class GoodDataRestApiError(Exception):
-    """Wrapper for errors occurring from interaction with GD REST API."""
+API_PAGE_SIZE = 100
 
 
+# TODO: consider moving storage related logic to a separate module and reuse it in restore
 class BackupRestoreConfig:
     def __init__(self, conf_path: str):
         with open(conf_path, "r") as stream:
             conf = yaml.safe_load(stream)
             self.storage_type = conf["storage_type"]
             self.storage = conf["storage"]
+            self.api_page_size = conf.get("api_page_size", API_PAGE_SIZE)
 
 
 class BackupStorage(abc.ABC):
@@ -122,79 +111,6 @@ class LocalStorage(BackupStorage):
         logger.info(f"Saving {org_id} to local storage")
         shutil.copytree(
             Path(folder), Path(Path.cwd(), export_folder), dirs_exist_ok=True
-        )
-
-
-MaybeResponse: TypeAlias = Optional[requests.Response]
-
-
-class GDApi:
-    """Wrapper for GoodData REST API client."""
-
-    def __init__(self, host: str, api_token: str, headers=None):
-        self.endpoint = self._handle_endpoint(host)
-        self.api_token = api_token
-        self.headers = headers if headers else {}
-        self.wait_api_time = 10
-
-    @staticmethod
-    def _handle_endpoint(host: str) -> str:
-        """Ensures that the endpoint URL is correctly formatted."""
-        return (
-            f"{host}api/{API_VERSION}"
-            if host[-1] == "/"
-            else f"{host}/api/{API_VERSION}"
-        )
-
-    def get(
-        self,
-        path: str,
-        params,
-        ok_code: int = 200,
-        not_found_code: int = 404,
-    ) -> MaybeResponse:
-        """Sends a GET request to the GoodData API."""
-        kwargs = self._prepare_request(path, params)
-        logger.debug(f"GET request: {json.dumps(kwargs)}")
-        response = requests.get(**kwargs)
-        return self._resolve_return_code(
-            response, ok_code, kwargs["url"], "RestApi.get", not_found_code
-        )
-
-    def _prepare_request(self, path: str, params=None) -> dict[str, Any]:
-        """Prepares the request to be sent to the GoodData API."""
-        kwargs: dict[str, Any] = {
-            "url": f"{self.endpoint}/{path}",
-            "headers": self.headers.copy(),
-        }
-        if params:
-            kwargs["params"] = params
-        if self.api_token:
-            kwargs["headers"]["Authorization"] = f"{BEARER_TKN_PREFIX} {self.api_token}"
-        else:
-            raise RuntimeError(
-                "Token required for authentication against GD API is missing."
-            )
-        # TODO - Currently no credentials validation
-        # TODO - do we also support username+pwd auth? Or do we enforce token only?
-        # else:
-        #     kwargs['auth'] = (self.user, self.password) if self.user is not None else None  # noqa
-        return kwargs
-
-    @staticmethod
-    def _resolve_return_code(
-        response, ok_code: int, url, method, not_found_code: Optional[int] = None
-    ) -> MaybeResponse:
-        """Resolves the return code of the response."""
-        if response.status_code == ok_code:
-            logger.debug(f"{method} to {url} succeeded")
-            return response
-        if not_found_code and response.status_code == not_found_code:
-            logger.debug(f"{method} to {url} failed - target not found")
-            return None
-        raise GoodDataRestApiError(
-            f"{method} to {url} failed - "
-            f"response_code={response.status_code} message={response.text}"
         )
 
 
@@ -347,31 +263,6 @@ def store_automations(api: GDApi, export_path: Path, org_id: str, ws_id: str) ->
             json.dump(automations, f)
 
 
-def store_declarative_automations(
-    sdk: GoodDataSdk, export_path: Path, org_id: str, ws_id: str
-) -> None:
-    """Stores the declarative automations in the specified export path."""
-    # TODO: Currently not working because of a bug in the SDK. There is an alternative way to
-    # get the automations from the API, which is implemented here, but it will be better to use
-    # the SDK method once the bug is fixed.
-
-    # Construct path to automations folder to put it in the same subfolder as the analytics model
-    automations_path: Path = Path(
-        export_path, "gooddata_layouts", org_id, "workspaces", ws_id, "automations"
-    )
-    os.mkdir(automations_path)
-
-    # Get the automations via the SDK
-    automations: list[CatalogDeclarativeAutomation] = (
-        sdk.catalog_workspace.get_declarative_automations(ws_id)
-    )
-
-    # Store the automations
-    for automation in automations:
-        with open(f"{automations_path}/{automation.id}.yaml", "w") as f:
-            f.write(yaml.dump(automation.to_dict()))
-
-
 def store_declarative_filter_views(
     sdk: GoodDataSdk, export_path: Path, org_id: str, ws_id: str
 ) -> None:
@@ -391,93 +282,6 @@ def store_declarative_filter_views(
             "filter_views",
         ),
     )
-
-
-def read_csv_input_for_backup(file_path: str) -> list[str]:
-    """Reads the input CSV file and returns its content from the first column as a list of string."""
-
-    with open(file_path) as csv_file:
-        reader: Iterator[list[str]] = csv.reader(csv_file, skipinitialspace=True)
-
-        try:
-            # Skip the header
-            headers = next(reader)
-
-            if len(headers) > 1:
-                raise ValueError(
-                    "Input file contains more than one column. Please check the input and try again."
-                )
-
-        except StopIteration:
-            # Raise an error if the iterator is empty
-            raise ValueError("No content found in the CSV file.")
-
-        # Read the content
-        content = [row[0] for row in reader]
-
-        # If the content is empty (no rows), raise an error
-        if not content:
-            raise ValueError("No workspaces found in the CSV file.")
-
-    return content
-
-
-def get_recursive_children(
-    all_workspaces: list[CatalogDeclarativeWorkspace], parent_id: str
-) -> list[str]:
-    """Recursively gets the children of the specified parent workspace."""
-    children = []
-    for workspace in all_workspaces:
-        if workspace.parent and workspace.parent.id == parent_id:
-            children.append(workspace.id)
-            children.extend(get_recursive_children(all_workspaces, workspace.id))
-
-    return children
-
-
-def get_workspaces_to_backup(
-    input_type: str, path_to_csv: str, sdk: GoodDataSdk
-) -> list[str]:
-    """Returns the list of workspace IDs to back up based on the input type."""
-    if input_type == "list-of-workspaces":
-        return read_csv_input_for_backup(path_to_csv)
-
-    else:
-        declarative_workspaces: CatalogDeclarativeWorkspaces = (
-            sdk.catalog_workspace.get_declarative_workspaces()
-        )
-
-        workspaces: list[CatalogDeclarativeWorkspace] = (
-            declarative_workspaces.workspaces
-        )
-
-        if not workspaces:
-            raise RuntimeError("No workspaces found in the organization.")
-
-        if input_type == "list-of-parents":
-            list_of_parents = read_csv_input_for_backup(path_to_csv)
-            list_of_children: list[str] = []
-
-            for parent in list_of_parents:
-                list_of_children.extend(get_recursive_children(workspaces, parent))
-
-            if not list_of_children:
-                raise RuntimeError(
-                    "No child workspaces found for the provided list of parents."
-                )
-
-            # Include the parent workspaces in the backup
-            return list_of_parents + list_of_children
-
-        if input_type == "entire-organization":
-            list_of_workspaces: list[str] = []
-
-            for workspace in workspaces:
-                list_of_workspaces.append(workspace.id)
-
-            return list_of_workspaces
-
-    raise RuntimeError("Invalid input type provided.")
 
 
 def get_workspace_export(
@@ -589,8 +393,9 @@ def main(args: argparse.Namespace) -> None:
     storage_class: Type[BackupStorage] = get_storage(conf.storage_type)
     storage: BackupStorage = storage_class(conf)
 
-    workspaces_to_export: list[str] = get_workspaces_to_backup(
-        args.input_type, args.ws_csv, sdk
+    loader = InputLoader(api, conf.api_page_size)
+    workspaces_to_export: list[str] = loader.get_ids_to_backup(
+        args.input_type, args.ws_csv
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
