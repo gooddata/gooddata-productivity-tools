@@ -1,5 +1,6 @@
 # (C) 2025 GoodData Corporation
 import csv
+import logging
 from dataclasses import dataclass
 from typing import Iterator
 
@@ -9,11 +10,12 @@ from utils.gd_api import (  # type: ignore[import]
     GoodDataRestApiError,
     MaybeResponse,
 )
-from utils.logger import logger  # type: ignore[import]
 from utils.models.workspace_response import (  # type: ignore[import]
     Workspace,
     WorkspaceResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class InputLoader:
@@ -145,6 +147,11 @@ class InputLoader:
         for subparent in sub_parents:
             all_children += self.get_hierarchy(subparent)
 
+        if not all_children:
+            logger.warning(
+                f"No child workspaces found for parent workspace ID: {parent_id}"
+            )
+
         return all_children
 
     def get_all_workspaces(self) -> list[str]:
@@ -163,6 +170,9 @@ class InputLoader:
         for result in results:
             all_workspaces.extend(result.workspace_ids)
 
+        if not all_workspaces:
+            logger.warning("No workspaces found in the organization.")
+
         return all_workspaces
 
     def get_ids_to_backup(self, input_type: str, path_to_csv: str) -> list[str]:
@@ -178,18 +188,11 @@ class InputLoader:
                 for parent in list_of_parents:
                     list_of_children.extend(self.get_hierarchy(parent))
 
-                if not list_of_children:
-                    raise RuntimeError(
-                        "No child workspaces found for the provided list of parents."
-                    )
-
                 # Include the parent workspaces in the backup
                 return list_of_parents + list_of_children
 
             if input_type == "entire-organization":
                 list_of_workspaces = self.get_all_workspaces()
-                if not list_of_workspaces:
-                    raise RuntimeError("No workspaces found in the organization.")
                 return list_of_workspaces
 
         raise RuntimeError("Invalid input type provided.")

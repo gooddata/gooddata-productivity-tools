@@ -3,6 +3,7 @@ import abc
 import argparse
 import datetime
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -21,7 +22,10 @@ from utils.gd_api import (  # type: ignore[import]
     GDApi,
     GoodDataRestApiError,
 )
-from utils.logger import logger  # type: ignore[import]
+from utils.logger import setup_logging  # type: ignore[import]
+
+setup_logging()
+logger = logging.getLogger("backup")
 
 TIMESTAMP_SDK_FOLDER = (
     str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -301,10 +305,7 @@ def get_workspace_export(
 
         user_data_filters = get_user_data_filters(api, ws_id)
         if not user_data_filters:
-            logger.error(
-                f"Skipping backup of {ws_id} - user data filters returned None."
-            )
-            logger.error(f"Check if {ws_id} exists and the API is functional")
+            logger.error(f"Skipping backup of {ws_id} - check if workspace exists.")
             continue
 
         try:
@@ -320,8 +321,7 @@ def get_workspace_export(
 
     if not exported:
         raise RuntimeError(
-            "None of the workspaces were exported."
-            "Check source file and their existence."
+            "None of the workspaces were exported. Check source file and their existence."
         )
 
 
@@ -393,10 +393,17 @@ def main(args: argparse.Namespace) -> None:
     storage_class: Type[BackupStorage] = get_storage(conf.storage_type)
     storage: BackupStorage = storage_class(conf)
 
+    # TODO: if storage set to S3, check that valid connection can be established
+    # currently the script would gather the exports and only then fail to upload them
+
     loader = InputLoader(api, conf.api_page_size)
     workspaces_to_export: list[str] = loader.get_ids_to_backup(
         args.input_type, args.ws_csv
     )
+
+    if not workspaces_to_export:
+        logger.error("No workspaces to export. Check the input file or the input type.")
+        return
 
     with tempfile.TemporaryDirectory() as tmpdir:
         get_workspace_export(sdk, api, tmpdir, org_id, workspaces_to_export)
@@ -409,5 +416,11 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser: argparse.ArgumentParser = create_parser()
     args: argparse.Namespace = parser.parse_args()
-    validate_args(args)
-    main(args)
+
+    try:
+        validate_args(args)
+        main(args)
+
+        logger.info("Backup completed.")
+    except Exception as e:
+        logger.error(f"Backup failed: {e}")
