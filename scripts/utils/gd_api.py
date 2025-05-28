@@ -1,10 +1,12 @@
 # (C) 2025 GoodData Corporation
 
 import json
+import logging
 from typing import Any, TypeAlias
 
 import requests
-from utils.logger import logger  # type: ignore[import]
+
+logger = logging.getLogger(__name__)
 
 API_VERSION = "v1"
 BEARER_TKN_PREFIX = "Bearer"
@@ -75,6 +77,9 @@ class GDApi:
         response, ok_code: int, url, method, not_found_code: int | None = None
     ) -> MaybeResponse:
         """Resolves the return code of the response."""
+        # TODO: this can be simplified, it would be more transparent to evaluate the
+        # requests.Response.status_code directly in each particular use case rather than
+        # checking if a "MaybeResponse" type is None or not.
         if response.status_code == ok_code:
             logger.debug(f"{method} to {url} succeeded")
             return response

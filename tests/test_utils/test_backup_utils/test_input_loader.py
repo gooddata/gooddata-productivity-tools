@@ -26,8 +26,6 @@ MOCK_GDP_API = GDApi(
     api_token="fake_token",
 )
 
-# MOCK_INPUT_LOADER = backup.InputLoader(MOCK_GD_API, 100)
-
 
 @pytest.fixture
 def input_loader():
@@ -57,7 +55,7 @@ def test_log_paging_progress_logs_info(mocker):
         links=Links(self="self", next="next"),
     )
 
-    mock_logger = mocker.patch("scripts.utils.logger.logger.info")
+    mock_logger = mocker.patch("scripts.utils.backup_utils.input_loader.logger.info")
     InputLoader.log_paging_progress(response)
     mock_logger.assert_called_once
 
@@ -69,7 +67,7 @@ def test_log_paging_progress_no_page(mocker):
         links=Links(self="self", next="next"),
     )
 
-    mock_logger = mocker.patch("scripts.utils.logger.logger.info")
+    mock_logger = mocker.patch("scripts.utils.backup_utils.input_loader.logger.info")
     InputLoader.log_paging_progress(response)
     assert mock_logger.call_count == 0
 
@@ -135,17 +133,18 @@ def test_get_hierarchy_recurses(input_loader, monkeypatch):
     assert set(result) == {"c1", "c2"}
 
 
-def test_get_workspaces_to_backup_empty_org(input_loader, monkeypatch):
+def test_get_workspaces_to_backup_empty_org(input_loader, monkeypatch, caplog):
     monkeypatch.setattr(
         input_loader,
-        "get_all_workspaces",
-        lambda: [],
+        "_paginate",
+        lambda _: [],
     )
-    with pytest.raises(RuntimeError, match="No workspaces found in the organization."):
+    with caplog.at_level("WARNING"):
         input_loader.get_ids_to_backup(
             "entire-organization",
             "some-csv-file.csv",
         )
+    assert "No workspaces found in the organization." in caplog.text
 
 
 def test_get_workspaces_to_backup_wrong_input_type(input_loader):
