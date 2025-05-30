@@ -20,8 +20,8 @@ from gooddata_sdk.sdk import GoodDataSdk
 from moto import mock_s3
 
 import scripts.backup as backup
+from scripts.utils.models.batch import Size
 
-LOGGER_NAME = "scripts.backup"
 MOCK_DL_TARGET = Path("overlays.zip")
 TEST_CONF_PATH = "tests/data/backup/test_conf.yaml"
 TEST_LOCAL_CONF_PATH = "tests/data/backup/test_local_conf.yaml"
@@ -347,3 +347,91 @@ def test_file_upload(s3, s3_bucket):
         S3_BUCKET,
         "some/s3/backup/path/org_id/services/wsid2/20230713-132759-1_3_1_dev5/gooddata_layouts/services/workspaces/wsid2/analytics_model/filter_contexts/id.yaml",
     ).load()
+
+
+def test_split_to_batches():
+    workspaces = ["ws1", "ws2", "ws3", "ws4", "ws5"]
+    batch_size = Size(size=2)
+    expected_batches = [
+        backup.BackupBatch(["ws1", "ws2"]),
+        backup.BackupBatch(["ws3", "ws4"]),
+        backup.BackupBatch(["ws5"]),
+    ]
+
+    result = backup.split_to_batches(workspaces, batch_size)
+
+    for i, batch in enumerate(result):
+        assert isinstance(batch, backup.BackupBatch)
+        assert batch.list_of_ids == expected_batches[i].list_of_ids
+
+
+@mock.patch("scripts.backup.archive_gooddata_layouts_to_zip")
+@mock.patch("scripts.backup.get_workspace_export")
+def test_process_batch_success(get_workspace_export_mock, archive_zip_mock):
+    sdk = mock.Mock()
+    api = mock.Mock()
+    org_id = "org"
+    storage = mock.Mock()
+    batch = backup.BackupBatch(["ws1", "ws2"])
+
+    backup.process_batch(sdk, api, org_id, storage, batch)
+
+    get_workspace_export_mock.assert_called_once()
+    archive_zip_mock.assert_called_once()
+    storage.export.assert_called_once()
+
+
+@mock.patch("scripts.backup.logger")
+@mock.patch("scripts.backup.archive_gooddata_layouts_to_zip")
+@mock.patch("scripts.backup.get_workspace_export")
+def test_process_batch_retries_on_exception(
+    get_workspace_export_mock, _archive_zip_mock, logger_mock
+):
+    sdk = mock.Mock()
+    api = mock.Mock()
+    org_id = "org"
+    storage = mock.Mock()
+    batch = backup.BackupBatch(["ws1"])
+    # Raise exception on first call, succeed on second
+    call_count = {"count": 0}
+
+    def fail_once(*args, **kwargs):
+        if call_count["count"] == 0:
+            call_count["count"] += 1
+            raise Exception("fail")
+        return None
+
+    get_workspace_export_mock.side_effect = fail_once
+
+    backup.process_batch(sdk, api, org_id, storage, batch)
+
+    assert get_workspace_export_mock.call_count == 2
+    assert logger_mock.info.call_args_list[0][0][0].startswith(
+        "Unexpected error while processing a batch. Retrying"
+    )
+    storage.export.assert_called_once()
+
+
+@mock.patch("scripts.backup.logger")
+@mock.patch("scripts.backup.archive_gooddata_layouts_to_zip")
+@mock.patch("scripts.backup.get_workspace_export")
+def test_process_batch_raises_after_max_retries(
+    get_workspace_export_mock, _archive_zip_mock, logger_mock
+):
+    sdk = mock.Mock()
+    api = mock.Mock()
+    org_id = "org"
+    storage = mock.Mock()
+    batch = backup.BackupBatch(["ws1"])
+    get_workspace_export_mock.side_effect = Exception("fail")
+
+    with pytest.raises(Exception, match="fail"):
+        backup.process_batch(
+            sdk,
+            api,
+            org_id,
+            storage,
+            batch,
+            retry_count=backup.BackupSettings.MAX_RETRIES,
+        )
+    logger_mock.error.assert_called()

@@ -5,7 +5,6 @@ import csv
 import json
 import logging
 import os
-import sys
 import tempfile
 import traceback
 import zipfile
@@ -15,30 +14,27 @@ from typing import Any, Optional, Type, TypeAlias
 import boto3
 import requests
 import yaml
-from gooddata_sdk import (
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.analytics_model.analytics_model import (
     CatalogDeclarativeAnalytics,
-    CatalogDeclarativeAutomation,
-    CatalogDeclarativeFilterView,
-    CatalogDeclarativeModel,
-    GoodDataSdk,
 )
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.automation import (
+    CatalogDeclarativeAutomation,
+)
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.logical_model.ldm import (
+    CatalogDeclarativeModel,
+)
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.workspace import (
+    CatalogDeclarativeFilterView,
+)
+from gooddata_sdk.sdk import GoodDataSdk
+from utils.constants import DirNames, GoodDataProfile  # type: ignore[import]
+from utils.logger import setup_logging  # type: ignore[import]
 
 BEARER_TKN_PREFIX = "Bearer"
-LAYOUTS_DIR = "gooddata_layouts"
-AM_DIR = "analytics_model"
-LDM_DIR = "ldm"
-UDF_DIR = "user_data_filters"
 
-PROFILES_FILE = "profiles.yaml"
-PROFILES_DIRECTORY = ".gooddata"
-PROFILES_FILE_PATH = Path.home() / PROFILES_DIRECTORY / PROFILES_FILE
-LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
-
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter(fmt=LOG_FORMAT))
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+setup_logging()
+module_name = __file__.split(os.sep)[-1]
+logger = logging.getLogger(module_name)
 
 GDWorkspace: TypeAlias = tuple[CatalogDeclarativeModel, CatalogDeclarativeAnalytics]
 
@@ -71,6 +67,9 @@ class BackupStorage(abc.ABC):
 
     Implement this abstract base class for different kinds of storage providers.
     """
+
+    def __init__(self, conf: BackupRestoreConfig):
+        return
 
     @abc.abstractmethod
     def get_ws_declaration(self, target_path: str, local_target_path: Path) -> None:
@@ -120,10 +119,10 @@ class S3Storage(BackupStorage):
         if len(objects) == 0:
             raise RuntimeError("Provided s3 backup_path does not exist. Exiting...")
 
-    def get_ws_declaration(self, s3_target_path: str, local_target_path: Path) -> None:
+    def get_ws_declaration(self, target_path: str, local_target_path: Path) -> None:
         """Retrieves workspace declaration from S3 bucket."""
         s3_backup_path = self._config.backup_path
-        target_s3_prefix = f"{s3_backup_path}{s3_target_path}"
+        target_s3_prefix = f"{s3_backup_path}{target_path}"
 
         objs_found = list(self._bucket.objects.filter(Prefix=target_s3_prefix))
 
@@ -141,7 +140,7 @@ class S3Storage(BackupStorage):
             )
 
         s3_obj = objs_found[0]
-        self._bucket.download_file(s3_obj.key, local_target_path)
+        self._bucket.download_file(s3_obj.key, str(local_target_path))
 
 
 MaybeResponse: TypeAlias = Optional[requests.Response]
@@ -221,9 +220,9 @@ def create_parser() -> argparse.ArgumentParser:
         "-p",
         "--profile-config",
         type=Path,
-        default=PROFILES_FILE_PATH,
+        default=GoodDataProfile.PROFILE_PATH,
         help="Optional path to GoodData profile config. "
-        f'If no path is provided, "{PROFILES_FILE_PATH}" is used.',
+        f'If no path is provided, "{GoodDataProfile.PROFILE_PATH}" is used.',
     )
     parser.add_argument(
         "--profile",
@@ -337,7 +336,7 @@ class RestoreWorker:
     def _convert_udf_files_to_api_body(src_path: Path) -> dict:
         """Converts UDF files to API body."""
         user_data_filters: dict = {"userDataFilters": []}
-        user_data_filters_folder = os.path.join(src_path, UDF_DIR)
+        user_data_filters_folder = os.path.join(src_path, DirNames.UDF)
         for filename in os.listdir(user_data_filters_folder):
             f = os.path.join(user_data_filters_folder, filename)
             with open(f, "r") as file:
@@ -462,9 +461,9 @@ class RestoreWorker:
             raise BackupRestoreError("Invalid source path upon load.")
 
         children = list(src_path.iterdir())
-        am_path = src_path / AM_DIR
-        ldm_path = src_path / LDM_DIR
-        udf_path = src_path / UDF_DIR
+        am_path = src_path / DirNames.AM
+        ldm_path = src_path / DirNames.LDM
+        udf_path = src_path / DirNames.UDF
 
         if (
             am_path not in children
@@ -474,7 +473,7 @@ class RestoreWorker:
             logger.error(
                 "LDM or AM directory missing in the workspace hierarchy. "
                 "Check if gooddata_layouts contains "
-                f"{AM_DIR}, {LDM_DIR} and {UDF_DIR} directories."
+                f"{DirNames.AM}, {DirNames.LDM} and {DirNames.UDF} directories."
             )
             raise BackupRestoreError("LDM or AM directory missing.")
 
@@ -505,8 +504,8 @@ class RestoreWorker:
         """Restores the backup of a workspace."""
         ws_path = self._ws_paths[ws_id]
         tempdir_path = Path(tempdir)
-        zip_target = tempdir_path / f"{LAYOUTS_DIR}.zip"
-        src_path = tempdir_path / LAYOUTS_DIR
+        zip_target = tempdir_path / f"{DirNames.LAYOUTS}.zip"
+        src_path = tempdir_path / DirNames.LAYOUTS
 
         try:
             self._get_ws_declaration(ws_path, zip_target)
@@ -591,7 +590,8 @@ def main(args):
 
     conf = BackupRestoreConfig(args.conf)
 
-    storage = get_storage(conf.storage_type)(conf)
+    cls_storage: type[BackupStorage] = get_storage(conf.storage_type)
+    storage = cls_storage(conf)
 
     ws_paths = read_targets_from_csv(args.ws_csv)
     validate_targets(sdk, ws_paths)

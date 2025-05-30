@@ -12,6 +12,7 @@ import pytest
 
 from scripts.utils.backup_utils.input_loader import InputLoader
 from scripts.utils.gd_api import GDApi
+from scripts.utils.models.batch import Size
 from scripts.utils.models.workspace_response import (
     Hierarchy,
     Links,
@@ -29,7 +30,7 @@ MOCK_GDP_API = GDApi(
 
 @pytest.fixture
 def input_loader():
-    loader = InputLoader(MOCK_GDP_API, page_size=2)
+    loader = InputLoader(MOCK_GDP_API, page_size=Size(size=2))
     loader.hierarchy_endpoint = "/fake/hierarchy?filter=parent.id=={parent_id}"
     loader.all_workspaces_endpoint = "/fake/all"
     return loader
