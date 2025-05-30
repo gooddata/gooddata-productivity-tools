@@ -1,20 +1,26 @@
 # (C) 2025 GoodData Corporation
+import os
+import sys
+
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts"))
+)
+
 import argparse
 import json
 import logging
-import os
 import tempfile
 from pathlib import Path
 from unittest import mock
 
 import boto3
-import gooddata_sdk as gd_sdk
 import pytest
+from gooddata_sdk.sdk import GoodDataSdk
 from moto import mock_s3
 
 from scripts import restore
 
-LOGGER_NAME = "scripts.restore"
+LOGGER_NAME = "restore.py"
 MOCK_DL_TARGET = Path("overlays.zip")
 TEST_CONF_PATH = "tests/data/restore/test_conf.yaml"
 TEST_CSV_PATH = "tests/data/restore/test.csv"
@@ -23,6 +29,20 @@ TEST_UDF_PATH = Path("tests/data/restore/test_user_data_filters/")
 
 S3_BACKUP_PATH = "some/s3/backup/path/org_id/"
 S3_BUCKET = "some-s3-bucket"
+
+# TODO: Verify that the tests use proper mocking - some of the tests appear to be sensitive to AWS CLI
+# local settings or to be making real calls:
+# - tests/test_restore.py::test_s3_storage
+# - tests/test_restore.py::test_s3_storage_no_target_only_dir
+# - tests/test_restore.py::test_s3_storage_no_target
+# - tests/test_restore.py::test_incremental_restore
+# - tests/test_restore.py::test_incremental_restore_different_ws_source
+# - tests/test_restore.py::test_incremental_restore_one_succeeds_one_fails
+# - tests/test_restore.py::test_e2e
+#
+# likely culprit is restore.S3Storage._validate_backup_path method
+#
+# As sidefect some other tests that assert RuntimeError being raised become false positives
 
 
 class MockGdWorkspace:
@@ -156,7 +176,6 @@ def test_get_unknown_storage_raises_error():
 
 def test_s3_storage(create_backups_in_bucket):
     create_backups_in_bucket(["ws_id"])
-
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
 
@@ -183,8 +202,9 @@ def test_s3_storage_no_target(s3_bucket):
 
 def test_init_ldm_with_ws_data_filter_cols():
     # Regression test - this doesn't work for sdk 1.3 and lesser
-    sdk = gd_sdk.GoodDataSdk.create("", "")
+    sdk = GoodDataSdk.create("", "")
     model = sdk.catalog_workspace_content.load_ldm_from_disk(TEST_LDM_PATH)
+    assert model.ldm is not None
     assert len(model.ldm.datasets) == 1
 
 
