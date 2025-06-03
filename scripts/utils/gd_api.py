@@ -9,7 +9,6 @@ import requests
 logger = logging.getLogger(__name__)
 
 API_VERSION = "v1"
-BEARER_TKN_PREFIX = "Bearer"
 
 MaybeResponse: TypeAlias = requests.Response | None
 
@@ -61,7 +60,7 @@ class GDApi:
         if params:
             kwargs["params"] = params
         if self.api_token:
-            kwargs["headers"]["Authorization"] = f"{BEARER_TKN_PREFIX} {self.api_token}"
+            kwargs["headers"]["Authorization"] = f"Bearer {self.api_token}"
         else:
             raise RuntimeError(
                 "Token required for authentication against GD API is missing."

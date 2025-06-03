@@ -69,7 +69,9 @@ python scripts/backup.py input.csv conf.yaml -p path/to/profiles.yaml --profile 
 ## Configuration file (conf)
 The configuration files let you define which type of storage the export tool will save the backups to, and any additional storage-specific information that might be required. Currently AWS S3 and Local storage are supported.
 
-If you run the script with `list-of-parents` or `entire-organization`, the script will fetch the IDs of workspaces to process (either hierarchies under the specified parents or all the workspaces within the organization) in batches. As a default, the batch size is set to `100`, but you can parametrize it by setting the `api_page_size` parametter in your configuration yaml.
+If you run the script with `list-of-parents` or `entire-organization`, the script will fetch the IDs of workspaces to process (either hierarchies under the specified parents or all the workspaces within the organization) in batches. As a default, the batch size is set to `100`, but you can parametrize it by setting the `api_page_size` parameter in your configuration yaml.
+
+The `batch_size` is an optional parameter which accepts integer value and determines how many workspaces will be processed before saving the backups to the selected storage. As a default, the batch size is set to `100`. If you want to set a different batch size, you can specify so in the configuration yaml.
 
 The configuration file has the following format:
 ```yaml
@@ -78,7 +80,9 @@ storage:
   arg1: foo
   arg2: bar
 api_page_size: 1000
+batch_size: 20
 ```
+
 
 ### AWS S3
 
@@ -96,7 +100,7 @@ Here, the meaning of different `storage` fields is as follows:
 - backup_path - absolute path within the S3 bucket which leads to the root directory where the backups should be saved
 - profile (optional) - AWS profile to be used
   
-## Local Storage
+### Local Storage
 
 ```yaml
 storage_type: local
