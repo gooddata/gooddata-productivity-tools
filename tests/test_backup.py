@@ -340,6 +340,7 @@ def test_local_storage_export():
 
 
 def test_file_upload(s3, s3_bucket):
+    # TODO: fix required - currently doesn't work without real AWS session
     conf = backup.BackupRestoreConfig(TEST_CONF_PATH)
     s3storage = backup.get_storage("s3")(conf)
     s3storage.export("tests/data/backup/test_exports", "services")
