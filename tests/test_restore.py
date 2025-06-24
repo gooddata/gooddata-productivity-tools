@@ -175,6 +175,7 @@ def test_get_unknown_storage_raises_error():
 
 
 def test_s3_storage(create_backups_in_bucket):
+    # TODO: fix required - currently doesn't work without real AWS session
     create_backups_in_bucket(["ws_id"])
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
@@ -185,6 +186,7 @@ def test_s3_storage(create_backups_in_bucket):
 
 
 def test_s3_storage_no_target_only_dir(s3_bucket):
+    # TODO: fix required - currently doesn't work without real AWS session
     s3_bucket.put_object(Bucket=S3_BUCKET, Key=f"{S3_BACKUP_PATH}/ws_id/")
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
@@ -193,6 +195,7 @@ def test_s3_storage_no_target_only_dir(s3_bucket):
 
 
 def test_s3_storage_no_target(s3_bucket):
+    # TODO: fix required - currently doesn't work without real AWS session
     s3_bucket.put_object(Bucket=S3_BUCKET, Key=f"{S3_BACKUP_PATH}/bla/")
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
@@ -300,6 +303,7 @@ def prepare_catalog_mocks():
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
 def test_incremental_restore(_, _load_user_data_filters, create_backups_in_bucket):
+    # TODO: fix required - currently doesn't work without real AWS session
     # Prepare sdk-related mocks
     ldm, ws_catalog = prepare_catalog_mocks()
     ws_catalog.load_ldm_from_disk.return_value = ldm
@@ -344,6 +348,7 @@ def test_incremental_restore(_, _load_user_data_filters, create_backups_in_bucke
 def test_incremental_restore_different_ws_source(
     _, _load_user_data_filters, create_backups_in_bucket
 ):
+    # TODO: fix required - currently doesn't work without real AWS session
     # Prepare sdk-related mocks
     ldm, ws_catalog = prepare_catalog_mocks()
     ws_catalog.load_ldm_from_disk.return_value = ldm
@@ -390,6 +395,7 @@ def test_incremental_restore_different_ws_source(
 def test_incremental_restore_one_succeeds_one_fails(
     _, _load_user_data_filters, create_backups_in_bucket
 ):
+    # TODO: fix required - currently doesn't work without real AWS session
     # Prepare sdk-related mocks
     ldm, ws_catalog = prepare_catalog_mocks()
     # One load succeeds, one fails...
@@ -465,6 +471,7 @@ def test_load_user_data_filters():
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
 def test_e2e(_, _load_user_data_filters, create_client, create_backups_in_bucket):
+    # TODO: fix required - currently doesn't work without real AWS session
     conf_path = TEST_CONF_PATH
     csv_path = TEST_CSV_PATH
     args = argparse.Namespace(conf=conf_path, ws_csv=csv_path, verbose=False)
