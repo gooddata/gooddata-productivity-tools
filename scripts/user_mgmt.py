@@ -126,10 +126,10 @@ class GDUserTarget:
         """Creates GDUserTarget from CatalogUser SDK object."""
         return GDUserTarget(
             user_id=obj.id,
-            firstname=obj.attributes.firstname,
-            lastname=obj.attributes.lastname,
-            email=obj.attributes.email,
-            auth_id=obj.attributes.authentication_id,
+            firstname=obj.attributes.firstname if obj.attributes else None,
+            lastname=obj.attributes.lastname if obj.attributes else None,
+            email=obj.attributes.email if obj.attributes else None,
+            auth_id=obj.attributes.authentication_id if obj.attributes else None,
             user_groups=[ug.id for ug in obj.user_groups],
             is_active=True,
         )

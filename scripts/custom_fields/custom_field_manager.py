@@ -109,6 +109,7 @@ class CustomFieldManager:
         """
         # Iterate through the workspaces.
         for workspace_id, datasets in validated_data.items():
+            print(f"⚙️ Processing workspace {workspace_id}...")
             # Get current workspace layout
             current_layout = self._api.get_workspace_layout(workspace_id)
             # Get a set of objects with invalid relations from current workspace state
@@ -131,7 +132,7 @@ class CustomFieldManager:
                 current_invalid_relations, new_invalid_relations
             ):
                 self._print_success_message(workspace_id)
-                return
+                continue
 
             print(
                 f"❌ Difference in invalid relations found in workspace {workspace_id}."

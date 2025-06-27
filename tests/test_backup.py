@@ -17,7 +17,7 @@ from unittest import mock
 import boto3
 import pytest
 from gooddata_sdk.sdk import GoodDataSdk
-from moto import mock_s3
+from moto import mock_aws
 
 import scripts.backup as backup
 from scripts.utils.models.batch import Size
@@ -58,22 +58,9 @@ def mock_requests():
     return requests
 
 
-@pytest.fixture(scope="function")
-def aws_credentials():
-    """
-    Mocked AWS Credentials for moto.
-    Ensures no locally set AWS credential envvars are used.
-    """
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-    os.environ["AWS_SECURITY_TOKEN"] = "testing"
-    os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-
-
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def s3(aws_credentials):
-    with mock_s3():
+    with mock_aws():
         yield boto3.resource("s3")
 
 
@@ -339,8 +326,7 @@ def test_local_storage_export():
         shutil.rmtree("tests/data/local_export")
 
 
-def test_file_upload(s3, s3_bucket):
-    # TODO: fix required - currently doesn't work without real AWS session
+def test_file_upload(s3, s3_bucket, mock_boto_session):
     conf = backup.BackupRestoreConfig(TEST_CONF_PATH)
     s3storage = backup.get_storage("s3")(conf)
     s3storage.export("tests/data/backup/test_exports", "services")
