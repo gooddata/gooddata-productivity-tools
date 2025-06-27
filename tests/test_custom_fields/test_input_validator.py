@@ -6,10 +6,10 @@ sys.path.insert(
 )
 
 import pytest
-from custom_fields.input_validator import (
+from custom_fields.input_validator import (  # type: ignore[import]
     CustomFieldsDataValidator,
 )
-from custom_fields.models.custom_data_object import (
+from custom_fields.models.custom_data_object import (  # type: ignore[import]
     CustomDataset,
 )
 from pydantic import ValidationError

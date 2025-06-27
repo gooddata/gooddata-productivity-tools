@@ -5,7 +5,9 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts"))
 )
 import pytest
-from custom_fields.custom_field_manager import CustomFieldManager
+from custom_fields.custom_field_manager import (  # type: ignore[import]
+    CustomFieldManager,
+)
 from pytest_mock import MockerFixture
 
 

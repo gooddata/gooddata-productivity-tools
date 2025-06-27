@@ -6,8 +6,10 @@ sys.path.insert(
 )
 
 import pytest
-from custom_fields.input_processor import CustomFieldsDataProcessor
-from custom_fields.models.custom_data_object import (
+from custom_fields.input_processor import (  # type: ignore[import]
+    CustomFieldsDataProcessor,
+)
+from custom_fields.models.custom_data_object import (  # type: ignore[import]
     ColumnDataType,
     CustomDataset,
     CustomDatasetDefinition,

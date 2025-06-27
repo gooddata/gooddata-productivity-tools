@@ -9,7 +9,7 @@ sys.path.insert(
 import json
 
 import pytest
-from custom_fields.models.analytical_object import (
+from custom_fields.models.analytical_object import (  # type: ignore[import]
     AnalyticalObject,
     AnalyticalObjects,
 )
