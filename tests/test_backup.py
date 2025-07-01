@@ -5,11 +5,11 @@ import sys
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts"))
 )
-
 import argparse
 import os
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -361,7 +361,14 @@ def test_process_batch_success(get_workspace_export_mock, archive_zip_mock):
     storage = mock.Mock()
     batch = backup.BackupBatch(["ws1", "ws2"])
 
-    backup.process_batch(sdk, api, org_id, storage, batch)
+    backup.process_batch(
+        sdk=sdk,
+        api=api,
+        org_id=org_id,
+        storage=storage,
+        batch=batch,
+        stop_event=threading.Event(),
+    )
 
     get_workspace_export_mock.assert_called_once()
     archive_zip_mock.assert_called_once()
@@ -390,11 +397,18 @@ def test_process_batch_retries_on_exception(
 
     get_workspace_export_mock.side_effect = fail_once
 
-    backup.process_batch(sdk, api, org_id, storage, batch)
+    backup.process_batch(
+        sdk=sdk,
+        api=api,
+        org_id=org_id,
+        storage=storage,
+        batch=batch,
+        stop_event=threading.Event(),
+    )
 
     assert get_workspace_export_mock.call_count == 2
     assert logger_mock.info.call_args_list[0][0][0].startswith(
-        "Unexpected error while processing a batch. Retrying"
+        "Exception encountered while processing a batch. Retrying"
     )
     storage.export.assert_called_once()
 
@@ -414,11 +428,12 @@ def test_process_batch_raises_after_max_retries(
 
     with pytest.raises(Exception, match="fail"):
         backup.process_batch(
-            sdk,
-            api,
-            org_id,
-            storage,
-            batch,
+            sdk=sdk,
+            api=api,
+            org_id=org_id,
+            storage=storage,
+            batch=batch,
+            stop_event=threading.Event(),
             retry_count=backup.BackupSettings.MAX_RETRIES,
         )
     logger_mock.error.assert_called()
