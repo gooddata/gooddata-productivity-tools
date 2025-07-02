@@ -35,7 +35,7 @@ The first contains the definitions of the datasets you want to create. It should
 
 #### JSON representation
 
-For readability, I include the data structure in JSON with comments. However, note that the script will only work with CSV files!
+For readability, here is the data structure in JSON format with comments. However, note that the script will only work with CSV files!
 
 ```json
 {

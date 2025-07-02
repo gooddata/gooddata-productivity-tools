@@ -423,6 +423,10 @@ def process_batch(
     and retry with exponential backoff up to BackupSettings.MAX_RETRIES.
     The base wait time is defined by BackupSettings.RETRY_DELAY.
     """
+    if stop_event.is_set():
+        # If the stop_event flag is set, return. This will terminate the thread.
+        return
+
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             get_workspace_export(sdk, api, tmpdir, org_id, batch.list_of_ids)
@@ -433,7 +437,6 @@ def process_batch(
 
     except Exception as e:
         if stop_event.is_set():
-            # If the stop_event flag is set, return. This will terminate the thread.
             return
 
         elif retry_count < BackupSettings.MAX_RETRIES:

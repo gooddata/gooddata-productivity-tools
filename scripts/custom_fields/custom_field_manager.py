@@ -83,22 +83,41 @@ class CustomFieldManager:
 
         return metrics.data + visualizations.data + dashboards.data
 
+    @staticmethod
     def _new_ldm_does_not_invalidate_relations(
-        self,
         current_invalid_relations: list[AnalyticalObject],
         new_invalid_relations: list[AnalyticalObject],
     ) -> bool:
+        """Check if the new LDM does not invalidate any new relations.
+
+        This method compares the lists of analytical objects containing invalid
+        relations. It creates sets of object IDs for each list and compares them.
+
+        If the set of new invalid relations is a subset of the set of current
+        invalid relations (that is before the changes to the LDM), the new LDM
+        does not invalidate any new relations and `True` is returned.
+
+        If the set of new invalid relations is not a subset of the current one,
+        it means that the new LDM invalidates new relations and `False` is returned.
+
+        Args:
+            current_invalid_relations (list[AnalyticalObject]): The current (before
+                changes to LDM) invalid relations.
+            new_invalid_relations (list[AnalyticalObject]): The new (after changes to
+                LDM) invalid relations.
+
+        Returns:
+            bool: True if the new LDM does not invalidate any relations, False otherwise.
+        """
         # Create a set of IDs for each group, then compare those sets
         set_current_invalid_relations = {obj.id for obj in current_invalid_relations}
         set_new_invalid_relations = {obj.id for obj in new_invalid_relations}
-        if set_current_invalid_relations == set_new_invalid_relations:
-            # No new invalid references found, success
-            return True
-        elif len(set_new_invalid_relations) < len(set_current_invalid_relations):
-            # Fewer invalid references found, success
+
+        # If the set of new invalid relations is a subset of the current one,
+        # the new LDM does not invalidate any new relations.
+        if set_new_invalid_relations.issubset(set_current_invalid_relations):
             return True
         else:
-            # More invalid references found, failure
             return False
 
     def _process_with_relations_check(
