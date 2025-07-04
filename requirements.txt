@@ -1,4 +1,4 @@
-boto3==1.37.21
+boto3==1.38.45
 gooddata_sdk==1.39.0
 requests==2.32.0
 pydantic==2.11.3

@@ -6,8 +6,9 @@ import logging
 import os
 import shutil
 import tempfile
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Type
 
@@ -327,7 +328,7 @@ def get_workspace_export(
             logger.info(f"Stored export for {ws_id}")
             exported = True
         except Exception as e:
-            logger.error(f"Skipping {ws_id}. Error encountered: {e}")
+            logger.error(f"Skipping {ws_id}. {e.__class__.__name__} encountered: {e}")
 
     if not exported:
         raise RuntimeError(
@@ -414,6 +415,7 @@ def process_batch(
     org_id: str,
     storage: BackupStorage,
     batch: BackupBatch,
+    stop_event: threading.Event,
     retry_count: int = 0,
 ) -> None:
     """Processes a single batch of workspaces for backup.
@@ -421,6 +423,10 @@ def process_batch(
     and retry with exponential backoff up to BackupSettings.MAX_RETRIES.
     The base wait time is defined by BackupSettings.RETRY_DELAY.
     """
+    if stop_event.is_set():
+        # If the stop_event flag is set, return. This will terminate the thread.
+        return
+
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             get_workspace_export(sdk, api, tmpdir, org_id, batch.list_of_ids)
@@ -430,17 +436,24 @@ def process_batch(
             storage.export(tmpdir, org_id)
 
     except Exception as e:
-        # Retry with exponential backoff until MAX_RETRIES, then raise the error
-        if retry_count < BackupSettings.MAX_RETRIES:
+        if stop_event.is_set():
+            return
+
+        elif retry_count < BackupSettings.MAX_RETRIES:
+            # Retry with exponential backoff until MAX_RETRIES.
             next_retry = retry_count + 1
+            wait_time = BackupSettings.RETRY_DELAY**next_retry
             logger.info(
-                f"Unexpected error while processing a batch. Retrying {next_retry}/{BackupSettings.MAX_RETRIES}..."
+                f"{e.__class__.__name__} encountered while processing a batch. "
+                + f"Retrying {next_retry}/{BackupSettings.MAX_RETRIES} in {wait_time} seconds..."
             )
-            time.sleep(BackupSettings.RETRY_DELAY**next_retry)
-            process_batch(sdk, api, org_id, storage, batch, next_retry)
+
+            time.sleep(wait_time)
+            process_batch(sdk, api, org_id, storage, batch, stop_event, next_retry)
         else:
-            logger.error(f"Error processing batch: {e}")
-            raise e
+            # If the batch fails after MAX_RETRIES, raise the error.
+            logger.error(f"Batch failed: {e.__class__.__name__}: {e}")
+            raise
 
 
 def process_batches_in_parallel(
@@ -450,15 +463,38 @@ def process_batches_in_parallel(
     storage: BackupStorage,
     batches: list[BackupBatch],
 ) -> None:
+    """
+    Processes batches in parallel using concurrent.futures. Will stop the processing
+    if any one of the batches fails.
+    """
+
+    # Create a threading flag to control the threads that have already been started
+    stop_event = threading.Event()
+
     with ThreadPoolExecutor(max_workers=BackupSettings.MAX_WORKERS) as executor:
+        # Set the futures tasks.
         futures = []
         for batch in batches:
             futures.append(
-                executor.submit(process_batch, sdk, api, org_id, storage, batch)
+                executor.submit(
+                    process_batch, sdk, api, org_id, storage, batch, stop_event
+                )
             )
 
-        for future in futures:
-            future.result()
+        # Process futures as they complete
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception:
+                # On failure, set the flag to True - signal running processes to stop.
+                stop_event.set()
+
+                # Cancel unstarted threads.
+                for f in futures:
+                    if not f.done():
+                        f.cancel()
+
+                raise
 
 
 def main(args: argparse.Namespace) -> None:

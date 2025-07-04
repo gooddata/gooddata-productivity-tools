@@ -16,7 +16,7 @@ from unittest import mock
 import boto3
 import pytest
 from gooddata_sdk.sdk import GoodDataSdk
-from moto import mock_s3
+from moto import mock_aws
 
 from scripts import restore
 
@@ -30,43 +30,17 @@ TEST_UDF_PATH = Path("tests/data/restore/test_user_data_filters/")
 S3_BACKUP_PATH = "some/s3/backup/path/org_id/"
 S3_BUCKET = "some-s3-bucket"
 
-# TODO: Verify that the tests use proper mocking - some of the tests appear to be sensitive to AWS CLI
-# local settings or to be making real calls:
-# - tests/test_restore.py::test_s3_storage
-# - tests/test_restore.py::test_s3_storage_no_target_only_dir
-# - tests/test_restore.py::test_s3_storage_no_target
-# - tests/test_restore.py::test_incremental_restore
-# - tests/test_restore.py::test_incremental_restore_different_ws_source
-# - tests/test_restore.py::test_incremental_restore_one_succeeds_one_fails
-# - tests/test_restore.py::test_e2e
-#
-# likely culprit is restore.S3Storage._validate_backup_path method
-#
-# As sidefect some other tests that assert RuntimeError being raised become false positives
-
 
 class MockGdWorkspace:
     def __init__(self, id: str) -> None:
         self.id = id
 
 
-@pytest.fixture()
-def aws_credentials():
-    """
-    Mocked AWS Credentials for moto.
-    Ensures no locally set AWS credential envvars are used.
-    """
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-    os.environ["AWS_SECURITY_TOKEN"] = "testing"
-    os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-
-
-@pytest.fixture()
-def s3(aws_credentials):
-    with mock_s3():
-        yield boto3.resource("s3")
+@pytest.fixture
+def s3(aws_credentials: None):
+    """Yields a mocked S3 client that can be used for testing."""
+    with mock_aws():
+        yield boto3.resource("s3", region_name="us-east-1")
 
 
 @pytest.fixture()
@@ -75,6 +49,7 @@ def s3_bucket(s3):
     yield s3.Bucket(S3_BUCKET)
 
 
+@mock_aws
 @pytest.fixture()
 def create_backups_in_bucket(s3_bucket):
     def create_backups(ws_ids: list[str], is_e2e: bool = False, suffix: str = "bla"):
@@ -83,11 +58,8 @@ def create_backups_in_bucket(s3_bucket):
         path_suffix = f"/{suffix}" if is_e2e else ""
 
         for ws_id in ws_ids:
+            s3_bucket.put_object(Key=f"{S3_BACKUP_PATH}{ws_id}{path_suffix}/")
             s3_bucket.put_object(
-                Bucket=S3_BUCKET, Key=f"{S3_BACKUP_PATH}{ws_id}{path_suffix}/"
-            )
-            s3_bucket.put_object(
-                Bucket=S3_BUCKET,
                 Key=f"{S3_BACKUP_PATH}{ws_id}{path_suffix}/gooddata_layouts.zip",
             )
 
@@ -174,7 +146,8 @@ def test_get_unknown_storage_raises_error():
         restore.get_storage("unknown_storage")
 
 
-def test_s3_storage(create_backups_in_bucket):
+@mock_aws
+def test_s3_storage(mock_boto_session, create_backups_in_bucket):
     create_backups_in_bucket(["ws_id"])
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
@@ -184,7 +157,7 @@ def test_s3_storage(create_backups_in_bucket):
         storage.get_ws_declaration("ws_id/", target_path)
 
 
-def test_s3_storage_no_target_only_dir(s3_bucket):
+def test_s3_storage_no_target_only_dir(mock_boto_session, s3_bucket):
     s3_bucket.put_object(Bucket=S3_BUCKET, Key=f"{S3_BACKUP_PATH}/ws_id/")
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
@@ -192,7 +165,7 @@ def test_s3_storage_no_target_only_dir(s3_bucket):
         storage.get_ws_declaration("ws_id/", MOCK_DL_TARGET)
 
 
-def test_s3_storage_no_target(s3_bucket):
+def test_s3_storage_no_target(mock_boto_session, s3_bucket):
     s3_bucket.put_object(Bucket=S3_BUCKET, Key=f"{S3_BACKUP_PATH}/bla/")
     conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
     storage = restore.S3Storage(conf)
@@ -297,10 +270,14 @@ def prepare_catalog_mocks():
     return ldm, ws_catalog
 
 
+# No longer need create_backups_in_bucket or mock_boto_session for this specific test
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
-def test_incremental_restore(_, _load_user_data_filters, create_backups_in_bucket):
-    # Prepare sdk-related mocks
+def test_incremental_restore(zipfile_mock, _, mocker):
+    """
+    Tests the RestoreWorker's incremental logic by providing a mock S3Storage object.
+    """
+    # Prepare sdk-related mocks (this is your existing setup)
     ldm, ws_catalog = prepare_catalog_mocks()
     ws_catalog.load_ldm_from_disk.return_value = ldm
     sdk = mock.Mock()
@@ -308,16 +285,32 @@ def test_incremental_restore(_, _load_user_data_filters, create_backups_in_bucke
     api = mock.Mock()
     sdk.catalog_workspace_content = ws_catalog
 
-    create_backups_in_bucket(["ws_id_1", "ws_id_2"])
+    # 1. Create a mock of an S3Storage INSTANCE using mocker
+    # This mock will behave like an S3Storage object, with the same methods.
+    mock_storage = mocker.create_autospec(restore.S3Storage, instance=True)
 
-    conf = restore.BackupRestoreConfig(TEST_CONF_PATH)
-    storage = restore.S3Storage(conf)
+    # 2. Define the behavior of the mock. The worker calls `get_ws_declaration`.
+    # We can just tell it to do nothing, because the next step in the worker
+    # (`_extract_zip_archive`) uses `zipfile.ZipFile`, which is already
+    # mocked by the decorator on this test.
+    mock_storage.get_ws_declaration.return_value = None
 
+    # 3. Inject the mock dependency into the worker
     ws_paths = {"ws_id_1": "ws_id_1", "ws_id_2": "ws_id_2"}
+    worker = restore.RestoreWorker(sdk, api, mock_storage, ws_paths)
 
-    worker = restore.RestoreWorker(sdk, api, storage, ws_paths)
-    with mock.patch("scripts.restore.RestoreWorker._check_workspace_is_valid") as _:
+    # 4. Run the code under test
+    with mock.patch("scripts.restore.RestoreWorker._check_workspace_is_valid"):
         worker.incremental_restore()
+
+    # 5. Assert that the worker interacted with our mock as expected
+    # This ensures the worker is calling the storage logic correctly.
+    mock_storage.get_ws_declaration.assert_has_calls(
+        [
+            mock.call("ws_id_1", mock.ANY),
+            mock.call("ws_id_2", mock.ANY),
+        ]
+    )
 
     ws_catalog.assert_has_calls(
         [
@@ -342,7 +335,7 @@ def test_incremental_restore(_, _load_user_data_filters, create_backups_in_bucke
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
 def test_incremental_restore_different_ws_source(
-    _, _load_user_data_filters, create_backups_in_bucket
+    _, _load_user_data_filters, create_backups_in_bucket, mock_boto_session
 ):
     # Prepare sdk-related mocks
     ldm, ws_catalog = prepare_catalog_mocks()
@@ -388,7 +381,7 @@ def test_incremental_restore_different_ws_source(
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
 def test_incremental_restore_one_succeeds_one_fails(
-    _, _load_user_data_filters, create_backups_in_bucket
+    _, _load_user_data_filters, create_backups_in_bucket, mock_boto_session
 ):
     # Prepare sdk-related mocks
     ldm, ws_catalog = prepare_catalog_mocks()
@@ -464,7 +457,13 @@ def test_load_user_data_filters():
 @mock.patch("scripts.restore.create_client")
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
-def test_e2e(_, _load_user_data_filters, create_client, create_backups_in_bucket):
+def test_e2e(
+    _,
+    _load_user_data_filters,
+    create_client,
+    create_backups_in_bucket,
+    mock_boto_session,
+):
     conf_path = TEST_CONF_PATH
     csv_path = TEST_CSV_PATH
     args = argparse.Namespace(conf=conf_path, ws_csv=csv_path, verbose=False)
