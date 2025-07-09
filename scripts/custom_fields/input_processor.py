@@ -221,7 +221,7 @@ class CustomFieldsDataProcessor:
                             multivalue=True,
                             sources=[
                                 CatalogDeclarativeReferenceSource(
-                                    column=dataset.definition.dataset_reference_source_colum,
+                                    column=dataset.definition.dataset_reference_source_column,
                                     target=CatalogGrainIdentifier(
                                         id=dataset.definition.parent_dataset_reference_attribute_id,
                                         type=CustomFieldType.ATTRIBUTE.value,
@@ -247,7 +247,7 @@ class CustomFieldsDataProcessor:
                             filter_id=CatalogDatasetWorkspaceDataFilterIdentifier(
                                 id=dataset.definition.wdf_id
                             ),
-                            filter_column=dataset.definition.wdf_id,
+                            filter_column=dataset.definition.wdf_column_name,
                             filter_column_data_type=ColumnDataType.STRING.value,
                         )
                     ],

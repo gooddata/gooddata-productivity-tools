@@ -23,9 +23,9 @@ Multiple datasets and fields can be defined in the files. However, the files nee
 
 The first contains the definitions of the datasets you want to create. It should have following structure:
 
-| workspace_id         | dataset_id        | dataset_name         | dataset_datasource_id | dataset_source_table | dataset_source_sql | parent_dataset_reference | parent_dataset_reference_attribute_id | dataset_reference_source_colum | wdf_id |
-| -------------------- | ----------------- | -------------------- | --------------------- | -------------------- | ------------------ | ------------------------ | ------------------------------------- | ------------------------------ | ------ |
-| child_workspace_id_1 | custom_dataset_id | Custom Dataset Title | datasource_id         | dataset_source_table |                    | parent_dataset_id        | parent_dataset.reference_field        | custom_dataset.reference_field | wdf_id |
+| workspace_id         | dataset_id        | dataset_name         | dataset_datasource_id | dataset_source_table | dataset_source_sql | parent_dataset_reference | parent_dataset_reference_attribute_id | dataset_reference_source_column | wdf_id | wdf_column_name |
+| -------------------- | ----------------- | -------------------- | --------------------- | -------------------- | ------------------ | ------------------------ | ------------------------------------- | ------------------------------- | ------ | --------------- |
+| child_workspace_id_1 | custom_dataset_id | Custom Dataset Title | datasource_id         | dataset_source_table |                    | parent_dataset_id        | parent_dataset.reference_field        | custom_dataset.reference_field  | wdf_id | wdf_column_name |
 
 #### Validity constraints
 
@@ -47,8 +47,9 @@ For readability, here is the data structure in JSON format with comments. Howeve
   "dataset_source_sql": null, // SQL query defining the dataset
   "parent_dataset_reference": "products", // ID of the parent dataset to which the custom one will be connected
   "parent_dataset_reference_attribute_id": "products.product_id", // parent dataset column name used fot the "join"
-  "dataset_reference_source_colum": "product_id", // custom dataset column name used for the "join"
-  "wdf_id": "x__client_id" // workspace data filter id
+  "dataset_reference_source_column": "product_id", // custom dataset column name used for the "join"
+  "wdf_id": "x__client_id", // workspace data filter id
+  "wdf_column_name": "client_id" // name of the column used for filtering
 }
 ```
 

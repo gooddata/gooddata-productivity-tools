@@ -68,8 +68,9 @@ def mock_dataset_definition():
         dataset_source_sql=None,
         parent_dataset_reference="parent_ds",
         parent_dataset_reference_attribute_id="parent_attr",
-        dataset_reference_source_colum="ref_col",
+        dataset_reference_source_column="ref_col",
         wdf_id="wdf1",
+        wdf_column_name="col1",
     )
 
 
