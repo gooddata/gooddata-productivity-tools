@@ -28,9 +28,9 @@ def valid_dataset_definitions():
             "dataset_source_sql": None,
             "parent_dataset_reference": "parent1",
             "parent_dataset_reference_attribute_id": "parent1.id",
-            "dataset_reference_source_colum": "id",
+            "dataset_reference_source_column": "id",
             "wdf_id": "wdf1",
-            "wdf_value": "val1",
+            "wdf_column_name": "id",
         },
         {
             "workspace_id": "ws2",
@@ -41,9 +41,9 @@ def valid_dataset_definitions():
             "dataset_source_sql": None,
             "parent_dataset_reference": "parent2",
             "parent_dataset_reference_attribute_id": "parent2.id",
-            "dataset_reference_source_colum": "id",
+            "dataset_reference_source_column": "id",
             "wdf_id": "wdf2",
-            "wdf_value": "val2",
+            "wdf_column_name": "id",
         },
     ]
 
@@ -107,9 +107,9 @@ def test_duplicate_dataset_raises(valid_dataset_definitions):
             "dataset_source_sql": None,
             "parent_dataset_reference": "parent1",
             "parent_dataset_reference_attribute_id": "parent1.id",
-            "dataset_reference_source_colum": "id",
+            "dataset_reference_source_column": "id",
             "wdf_id": "wdf1",
-            "wdf_value": "val1",
+            "wdf_column_name": "id",
         }
     ]
     validator = CustomFieldsDataValidator()

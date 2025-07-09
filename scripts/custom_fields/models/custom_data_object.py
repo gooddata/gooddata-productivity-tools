@@ -62,8 +62,9 @@ class CustomDatasetDefinition(BaseModel):
     dataset_source_sql: str | None
     parent_dataset_reference: str
     parent_dataset_reference_attribute_id: str
-    dataset_reference_source_colum: str
+    dataset_reference_source_column: str
     wdf_id: str
+    wdf_column_name: str
 
     @model_validator(mode="after")
     def check_source(self) -> "CustomDatasetDefinition":
