@@ -63,6 +63,7 @@ class CustomDatasetDefinition(BaseModel):
     parent_dataset_reference: str
     parent_dataset_reference_attribute_id: str
     dataset_reference_source_column: str
+    dataset_reference_source_column_data_type: ColumnDataType
     wdf_id: str
     wdf_column_name: str
 

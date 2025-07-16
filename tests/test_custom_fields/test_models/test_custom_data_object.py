@@ -43,6 +43,7 @@ def make_valid_dataset_def(**kwargs):
         "parent_dataset_reference": "parent_ds",
         "parent_dataset_reference_attribute_id": "parent_attr",
         "dataset_reference_source_column": "src_col",
+        "dataset_reference_source_column_data_type": ColumnDataType.STRING,
         "wdf_id": "wdf1",
         "wdf_column_name": "col1",
     }

@@ -29,6 +29,7 @@ def valid_dataset_definitions():
             "parent_dataset_reference": "parent1",
             "parent_dataset_reference_attribute_id": "parent1.id",
             "dataset_reference_source_column": "id",
+            "dataset_reference_source_column_data_type": "STRING",
             "wdf_id": "wdf1",
             "wdf_column_name": "id",
         },
@@ -42,6 +43,7 @@ def valid_dataset_definitions():
             "parent_dataset_reference": "parent2",
             "parent_dataset_reference_attribute_id": "parent2.id",
             "dataset_reference_source_column": "id",
+            "dataset_reference_source_column_data_type": "INT",
             "wdf_id": "wdf2",
             "wdf_column_name": "id",
         },
@@ -108,6 +110,7 @@ def test_duplicate_dataset_raises(valid_dataset_definitions):
             "parent_dataset_reference": "parent1",
             "parent_dataset_reference_attribute_id": "parent1.id",
             "dataset_reference_source_column": "id",
+            "dataset_reference_source_column_data_type": "STRING",
             "wdf_id": "wdf1",
             "wdf_column_name": "id",
         }
