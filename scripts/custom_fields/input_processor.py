@@ -64,6 +64,7 @@ class CustomFieldsDataProcessor:
 
     @staticmethod
     def _attribute_from_field(
+        dataset_name: str,
         custom_field: CustomFieldDefinition,
     ) -> CatalogDeclarativeAttribute:
         """Assign a declarative attribute from a custom field definition."""
@@ -73,10 +74,12 @@ class CustomFieldsDataProcessor:
             source_column=custom_field.cf_source_column,
             labels=[],
             source_column_data_type=custom_field.cf_source_column_data_type.value,
+            tags=[dataset_name],
         )
 
     @staticmethod
     def _fact_from_field(
+        dataset_name: str,
         custom_field: CustomFieldDefinition,
     ) -> CatalogDeclarativeFact:
         """Assign a declarative fact from a custom field definition."""
@@ -85,10 +88,12 @@ class CustomFieldsDataProcessor:
             title=custom_field.cf_name,
             source_column=custom_field.cf_source_column,
             source_column_data_type=custom_field.cf_source_column_data_type.value,
+            tags=[dataset_name],
         )
 
     def _date_from_field(
         self,
+        dataset_name: str,
         custom_field: CustomFieldDefinition,
     ) -> CatalogDeclarativeDateDataset:
         """Assign a declarative date dataset from a custom field definition."""
@@ -101,6 +106,7 @@ class CustomFieldsDataProcessor:
                 title_pattern="%titleBase - %granularityTitle",
             ),
             granularities=self.DATE_GRANULARITIES,
+            tags=[dataset_name],
         )
 
     @staticmethod
@@ -181,10 +187,18 @@ class CustomFieldsDataProcessor:
             # Iterate through the custom fields and create the appropriate objects
             for custom_field in dataset.custom_fields:
                 if custom_field.cf_type == CustomFieldType.ATTRIBUTE:
-                    attributes.append(self._attribute_from_field(custom_field))
+                    attributes.append(
+                        self._attribute_from_field(
+                            dataset.definition.dataset_name, custom_field
+                        )
+                    )
 
                 elif custom_field.cf_type == CustomFieldType.FACT:
-                    facts.append(self._fact_from_field(custom_field))
+                    facts.append(
+                        self._fact_from_field(
+                            dataset.definition.dataset_name, custom_field
+                        )
+                    )
 
                 # Process date dimensions and store them to date_instances. Date
                 # dimensions are not stored in a dataset, but as a separate dataset.
@@ -193,7 +207,11 @@ class CustomFieldsDataProcessor:
                 # in the GoodData Logical Data Model.
                 elif custom_field.cf_type == CustomFieldType.DATE:
                     # Add the date dimension to the date_instances
-                    date_instances.append(self._date_from_field(custom_field))
+                    date_instances.append(
+                        self._date_from_field(
+                            dataset.definition.dataset_name, custom_field
+                        )
+                    )
 
                     # Create a reference so that the date dimension is connected
                     # to the dataset in the GoodData Logical Data Model.
@@ -216,12 +234,13 @@ class CustomFieldsDataProcessor:
                     references=[
                         CatalogDeclarativeReference(
                             identifier=CatalogReferenceIdentifier(
-                                id=dataset.definition.parent_dataset_reference
+                                id=dataset.definition.parent_dataset_reference,
                             ),
                             multivalue=True,
                             sources=[
                                 CatalogDeclarativeReferenceSource(
                                     column=dataset.definition.dataset_reference_source_column,
+                                    data_type=dataset.definition.dataset_reference_source_column_data_type.value,
                                     target=CatalogGrainIdentifier(
                                         id=dataset.definition.parent_dataset_reference_attribute_id,
                                         type=CustomFieldType.ATTRIBUTE.value,
@@ -238,7 +257,7 @@ class CustomFieldsDataProcessor:
                     sql=dataset_sql,
                     workspace_data_filter_columns=[
                         CatalogDeclarativeWorkspaceDataFilterColumn(
-                            name=dataset.definition.wdf_id,
+                            name=dataset.definition.wdf_column_name,
                             data_type=ColumnDataType.STRING.value,
                         )
                     ],
@@ -251,6 +270,7 @@ class CustomFieldsDataProcessor:
                             filter_column_data_type=ColumnDataType.STRING.value,
                         )
                     ],
+                    tags=[dataset.definition.dataset_name],
                 )
             )
 
