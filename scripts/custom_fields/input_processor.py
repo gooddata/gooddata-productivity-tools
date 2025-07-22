@@ -119,7 +119,7 @@ class CustomFieldsDataProcessor:
             multivalue=False,
             sources=[
                 CatalogDeclarativeReferenceSource(
-                    column=custom_field.cf_id,
+                    column=custom_field.cf_source_column,
                     target=CatalogGrainIdentifier(
                         id=custom_field.cf_id,
                         type=CustomFieldType.DATE.value,
