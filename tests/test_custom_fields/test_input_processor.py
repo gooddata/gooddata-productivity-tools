@@ -127,7 +127,7 @@ def test_date_ref_from_field(mock_custom_field_date):
     ref = CustomFieldsDataProcessor._date_ref_from_field(mock_custom_field_date)
     assert ref.identifier.id == "date1"
     assert ref.sources
-    assert ref.sources[0].column == "date1"
+    assert ref.sources[0].column == "col_date1"
     assert ref.sources[0].data_type == ColumnDataType.DATE.value
 
 
