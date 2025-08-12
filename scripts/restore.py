@@ -82,6 +82,9 @@ class S3StorageConfig:
         suffix = "/" if not storconf["backup_path"].endswith("/") else ""
         self.backup_path: str = storconf["backup_path"] + suffix
         self.profile = storconf.get("profile", "default")
+        self.aws_access_key_id = storconf.get("aws_access_key_id")
+        self.aws_secret_access_key = storconf.get("aws_secret_access_key")
+        self.aws_default_region = storconf.get("aws_default_region")
 
 
 class S3Storage(BackupStorage):
@@ -91,18 +94,31 @@ class S3Storage(BackupStorage):
 
     def __init__(self, conf: BackupRestoreConfig):
         self._config = S3StorageConfig(conf.storage)
-        self._session = self._create_boto_session(self._config.profile)
+        self._session = self._create_boto_session(self._config)
         self._api = self._session.resource("s3")
         self._bucket = self._api.Bucket(self._config.bucket)
         self._validate_backup_path()
 
     @staticmethod
-    def _create_boto_session(profile: str) -> boto3.Session:
+    def _create_boto_session(config: S3StorageConfig) -> boto3.Session:
+        if config.aws_access_key_id and config.aws_secret_access_key:
+            if not config.aws_default_region:
+                logger.warning("No AWS region specified. Defaulting to us-east-1.")
+            try:
+                return boto3.Session(
+                    aws_access_key_id=config.aws_access_key_id,
+                    aws_secret_access_key=config.aws_secret_access_key,
+                    region_name=config.aws_default_region,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to create boto3 session with supplied credentials. Falling back to profile..."
+                )
         try:
-            return boto3.Session(profile_name=profile)
+            return boto3.Session(profile_name=config.profile)
         except Exception:
             logger.warning(
-                'AWS profile "[default]" not found. Trying other fallback methods...'
+                f'AWS profile "{config.profile}" not found. Trying other fallback methods...'
             )
 
         return boto3.Session()
