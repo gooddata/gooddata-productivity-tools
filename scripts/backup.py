@@ -63,8 +63,7 @@ class BackupStorage(abc.ABC):
 class S3Storage(BackupStorage):
     def __init__(self, conf: BackupRestoreConfig):
         self._config = conf.storage
-        self._profile = self._config.get("profile", "default")
-        self._session = self._create_boto_session(self._profile)
+        self._session = self._create_boto_session(self._config)
         self._resource = self._session.resource("s3")
         self._bucket = self._resource.Bucket(self._config["bucket"])  # type: ignore [missing library stubs]
         suffix = "/" if not self._config["backup_path"].endswith("/") else ""
@@ -73,12 +72,25 @@ class S3Storage(BackupStorage):
         self._verify_connection()
 
     @staticmethod
-    def _create_boto_session(profile: str) -> boto3.Session:
+    def _create_boto_session(config: dict[str, str]) -> boto3.Session:
+        if config.get("aws_access_key_id") and config.get("aws_secret_access_key"):
+            if not config.get("aws_default_region"):
+                logger.warning("No AWS region specified. Defaulting to us-east-1.")
+            try:
+                return boto3.Session(
+                    aws_access_key_id=config["aws_access_key_id"],
+                    aws_secret_access_key=config["aws_secret_access_key"],
+                    region_name=config["aws_default_region"],
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to create boto3 session with supplied credentials. Falling back to profile..."
+                )
         try:
-            return boto3.Session(profile_name=profile)
+            return boto3.Session(profile_name=config.get("profile"))
         except Exception:
             logger.warning(
-                'AWS profile "[default]" not found. Trying other fallback methods...'
+                f'AWS profile "{config.get("profile")}" not found. Trying other fallback methods...'
             )
 
         return boto3.Session()

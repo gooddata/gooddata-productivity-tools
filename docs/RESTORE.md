@@ -50,12 +50,18 @@ storage_type: s3
 storage:
   bucket: some_bucket
   backup_path: some/path/to/backups/gd_org_id/
-  profile: services 
+  profile: services
+  aws_access_key_id: your-access-key-id
+  aws_secret_access_key: your-secret-access-key
+  aws_default_region: us-east-1
 ```
 Here, the meaning of different `storage` fields is as follows:
 - bucket - S3 storage bucket containing the backups
 - backup_path - absolute path within the S3 bucket which leads to the root directory of the backups (the input csv file defines sources from here)
 - profile (optional) - AWS profile to be used
+- aws_access_key_id (optional) - AWS access key ID to be used
+- aws_secret_access_key (optional) - AWS secret access key to be used
+- aws_default_region (optional) - AWS region to be used
 
 
 ## Input CSV file (ws_csv)
