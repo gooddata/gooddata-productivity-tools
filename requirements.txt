@@ -1,4 +1,9 @@
-boto3==1.38.45
-gooddata_sdk==1.39.0
-requests==2.32.0
-pydantic==2.11.3
+# GoodData Python SDK packages
+gooddata_sdk>=1.51
+gooddata-pipelines>=1.51
+
+# Other dependencies
+# TODO: remove after full transition to GoodData SDK packages
+requests
+boto3
+pydantic
