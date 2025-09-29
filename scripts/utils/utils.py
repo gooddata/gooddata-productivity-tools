@@ -12,7 +12,9 @@ from gooddata_pipelines.provisioning.provisioning import Provisioning
 logger = logging.getLogger(__name__)
 
 
-def read_csv_file_to_dict(file_path: str) -> list[dict[str, str]]:
+def read_csv_file_to_dict(
+    file_path: str, delimiter: str = ",", quotechar: str = '"'
+) -> list[dict[str, str]]:
     """Read a CSV file and return its content as a list of dictionaries.
 
     Args:
@@ -22,7 +24,7 @@ def read_csv_file_to_dict(file_path: str) -> list[dict[str, str]]:
         a row in the CSV file, with keys as column headers and values as row values.
     """
     with open(file_path, "r", encoding="utf-8") as file:
-        return list(csv.DictReader(file))
+        return list(csv.DictReader(file, delimiter=delimiter, quotechar=quotechar))
 
 
 def create_provisioner(
