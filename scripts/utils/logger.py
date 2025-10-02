@@ -58,7 +58,7 @@ class LogHandler(logging.Handler):
             self.file_handler.emit(record)
 
 
-def setup_logging() -> None:
+def setup_logging(verbose: bool = False) -> None:
     """
     Sets up logging configuration for the root logger.
     Terminal logs will be formatted with colors based on the log level.
@@ -66,6 +66,9 @@ def setup_logging() -> None:
     `<script_name>_<date>.log` in the current working directory.
     """
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+
+    min_level = logging.DEBUG if verbose else logging.INFO
+
+    root_logger.setLevel(min_level)
     root_logger.handlers.clear()
     root_logger.addHandler(LogHandler())
