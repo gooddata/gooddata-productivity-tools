@@ -11,7 +11,11 @@ import os
 from custom_fields.custom_field_manager import (  # type: ignore[import]
     CustomFieldManager,
 )
+from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import read_csv_file_to_dict  # type: ignore[import]
+
+setup_logging()
+logger = get_logger(__name__)
 
 
 def main(
