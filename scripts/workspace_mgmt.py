@@ -1,17 +1,20 @@
 # (C) 2025 GoodData Corporation
 import argparse
-import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from gooddata_pipelines import WorkspaceIncrementalLoad, WorkspaceProvisioner
 from gooddata_sdk.utils import PROFILES_FILE_PATH
-from utils.logger import setup_logging  # type: ignore[import]
+from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import (  # type: ignore[import]
     create_provisioner,
     read_csv_file_to_dict,
 )
+
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -141,9 +144,5 @@ def workspace_mgmt():
 
 
 if __name__ == "__main__":
-    # Setup logging
-    setup_logging()
-    logger = logging.getLogger(__name__)
-
     # Main function
     workspace_mgmt()

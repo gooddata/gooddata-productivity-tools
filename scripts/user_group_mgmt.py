@@ -11,7 +11,6 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import logging
 import os
 import re
 from pathlib import Path
@@ -21,25 +20,21 @@ from gooddata_pipelines import (
     UserGroupProvisioner,
 )
 from gooddata_sdk.utils import PROFILES_FILE_PATH
-from utils.logger import setup_logging  # type: ignore[import]
+from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import (  # type: ignore[import]
     create_provisioner,
     read_csv_file_to_dict,
 )
 
-UG_REGEX = r"^(?!\.)[.A-Za-z0-9_-]{1,255}$"
-
-
 setup_logging()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+UG_REGEX = r"^(?!\.)[.A-Za-z0-9_-]{1,255}$"
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Creates an argument parser."""
     parser = argparse.ArgumentParser(description="Management of users and userGroups.")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Turns on the debug log output."
-    )
     parser.add_argument(
         "user_group_csv", type=Path, help="Path to csv with user groups definition."
     )
@@ -140,8 +135,6 @@ def read_users_groups_from_csv(
 
 def user_group_mgmt(args):
     """Main function for user management."""
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
 
     try:
         validate_args(args)
@@ -163,4 +156,5 @@ def user_group_mgmt(args):
 if __name__ == "__main__":
     parser = create_parser()
     args = parser.parse_args()
+
     user_group_mgmt(args)
