@@ -108,7 +108,7 @@ def validate_args(args: argparse.Namespace) -> None:
         )
 
 
-if __name__ == "__main__":
+def permission_mgmt():
     parser = create_parser()
     args = parser.parse_args()
 
@@ -121,3 +121,7 @@ if __name__ == "__main__":
     permission_manager.logger.subscribe(logger)
 
     permission_manager.incremental_load(permissions)
+
+
+if __name__ == "__main__":
+    permission_mgmt()

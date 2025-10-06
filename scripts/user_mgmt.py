@@ -124,9 +124,11 @@ def validate_args(args: argparse.Namespace) -> None:
         raise RuntimeError("The quotechar argument must be exactly one character long.")
 
 
-def user_mgmt(args: argparse.Namespace) -> None:
+def user_mgmt() -> None:
     """Main function for user management."""
 
+    parser = create_parser()
+    args = parser.parse_args()
     validate_args(args)
 
     users = read_users_from_csv(
@@ -141,7 +143,4 @@ def user_mgmt(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = create_parser()
-    args = parser.parse_args()
-
-    user_mgmt(args)
+    user_mgmt()

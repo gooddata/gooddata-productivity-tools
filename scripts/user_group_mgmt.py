@@ -133,8 +133,11 @@ def read_users_groups_from_csv(
     return user_groups
 
 
-def user_group_mgmt(args):
+def user_group_mgmt():
     """Main function for user management."""
+
+    parser = create_parser()
+    args = parser.parse_args()
 
     try:
         validate_args(args)
@@ -154,7 +157,4 @@ def user_group_mgmt(args):
 
 
 if __name__ == "__main__":
-    parser = create_parser()
-    args = parser.parse_args()
-
-    user_group_mgmt(args)
+    user_group_mgmt()

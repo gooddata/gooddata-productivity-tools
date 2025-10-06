@@ -591,16 +591,24 @@ def create_client(args: argparse.Namespace) -> tuple[GoodDataSdk, GDApi]:
     )
 
 
-def main(args):
-    """Main entry point of the script."""
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-
+def validate_args(args: argparse.Namespace) -> None:
+    """Validates the arguments provided."""
     if not os.path.exists(args.ws_csv):
         raise RuntimeError("Invalid path to csv given.")
 
     if not os.path.exists(args.conf):
         raise RuntimeError("Invalid path to backup storage configuration given.")
+
+
+def restore():
+    """Main entry point of the script."""
+
+    parser = create_parser()
+    args = parser.parse_args()
+    validate_args(args)
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
 
     sdk, api = create_client(args)
 
@@ -619,6 +627,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = create_parser()
-    args = parser.parse_args()
-    main(args)
+    restore()
