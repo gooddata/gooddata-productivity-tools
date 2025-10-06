@@ -72,3 +72,8 @@ def setup_logging(verbose: bool = False) -> None:
     root_logger.setLevel(min_level)
     root_logger.handlers.clear()
     root_logger.addHandler(LogHandler())
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Returns a logger with the given name."""
+    return logging.getLogger(name)

@@ -1,27 +1,23 @@
 # (C) 2025 GoodData Corporation
 import argparse
 import csv
-import logging
 import os
 import re
 from pathlib import Path
 
 from gooddata_pipelines import UserIncrementalLoad, UserProvisioner
 from gooddata_sdk.utils import PROFILES_FILE_PATH
-from utils.logger import setup_logging  # type: ignore[import]
+from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import create_provisioner  # type: ignore[import]
 
-setup_logging()
-logger = logging.getLogger(__name__)
-
 UG_REGEX = r"^(?!\.)[.A-Za-z0-9_-]{1,255}$"
+
+setup_logging()
+logger = get_logger(__name__)
 
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Management of users and userGroups.")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Turns on the debug log output."
-    )
     parser.add_argument(
         "user_csv", type=Path, help="Path to csv with user definitions."
     )
@@ -128,11 +124,11 @@ def validate_args(args: argparse.Namespace) -> None:
         raise RuntimeError("The quotechar argument must be exactly one character long.")
 
 
-def user_mgmt(args: argparse.Namespace) -> None:
+def user_mgmt() -> None:
     """Main function for user management."""
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
 
+    parser = create_parser()
+    args = parser.parse_args()
     validate_args(args)
 
     users = read_users_from_csv(
@@ -147,6 +143,4 @@ def user_mgmt(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = create_parser()
-    args = parser.parse_args()
-    user_mgmt(args)
+    user_mgmt()

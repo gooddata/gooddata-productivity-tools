@@ -125,7 +125,7 @@ def test_gd_client_no_creds_raises_error():
 def test_bad_csv_path_raises_error(_, csv_path):
     args = argparse.Namespace(ws_csv=csv_path, verbose=False)
     with pytest.raises(RuntimeError):
-        restore.main(args)
+        restore.validate_args(args)
 
 
 @pytest.mark.parametrize("conf_path", ["", "bad/path"])
@@ -133,7 +133,7 @@ def test_bad_csv_path_raises_error(_, csv_path):
 def test_bad_conf_path_raises_error(_, conf_path):
     args = argparse.Namespace(conf=conf_path, ws_csv=".", verbose=False)
     with pytest.raises(RuntimeError):
-        restore.main(args)
+        restore.validate_args(args)
 
 
 def test_get_s3_storage():
@@ -457,8 +457,10 @@ def test_load_user_data_filters():
 @mock.patch("scripts.restore.create_client")
 @mock.patch("scripts.restore.RestoreWorker._load_user_data_filters")
 @mock.patch("scripts.restore.zipfile")
+@mock.patch("scripts.restore.create_parser")
 def test_e2e(
-    _,
+    create_parser,
+    zipfile_mock,
     _load_user_data_filters,
     create_client,
     create_backups_in_bucket,
@@ -485,8 +487,13 @@ def test_e2e(
 
     create_backups_in_bucket(["ws_id_1", "ws_id_2"], is_e2e=True)
 
+    # Mock parser and its parse_args to return our args namespace
+    parser_mock = mock.Mock()
+    parser_mock.parse_args.return_value = args
+    create_parser.return_value = parser_mock
+
     with mock.patch("scripts.restore.RestoreWorker._check_workspace_is_valid") as _:
-        restore.main(args)
+        restore.restore()
 
     assert_not_called_with(
         ws_catalog.put_declarative_ldm, "thiswsdoesnotexist", mock.ANY

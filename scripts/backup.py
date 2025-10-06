@@ -534,7 +534,7 @@ def main(args: argparse.Namespace) -> None:
     process_batches_in_parallel(sdk, api, org_id, storage, batches)
 
 
-if __name__ == "__main__":
+def backup():
     parser: argparse.ArgumentParser = create_parser()
     args: argparse.Namespace = parser.parse_args()
 
@@ -545,3 +545,7 @@ if __name__ == "__main__":
         logger.info("Backup completed!")
     except Exception as e:
         logger.error(f"Backup failed: {e}")
+
+
+if __name__ == "__main__":
+    backup()

@@ -1,6 +1,5 @@
 # (C) 2025 GoodData Corporation
 import argparse
-import logging
 import os
 from pathlib import Path
 
@@ -10,18 +9,18 @@ from gooddata_pipelines import (
     PermissionProvisioner,
 )
 from gooddata_sdk.utils import PROFILES_FILE_PATH
-from utils.logger import setup_logging  # type: ignore[import]
+from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import (  # type: ignore[import]
     create_provisioner,
     read_csv_file_to_dict,
 )
 
+setup_logging()
+logger = get_logger(__name__)
+
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Management of workspace permissions.")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Turns on the debug log output."
-    )
     parser.add_argument(
         "perm_csv",
         type=Path,
@@ -109,12 +108,9 @@ def validate_args(args: argparse.Namespace) -> None:
         )
 
 
-if __name__ == "__main__":
+def permission_mgmt():
     parser = create_parser()
     args = parser.parse_args()
-
-    setup_logging(args.verbose)
-    logger = logging.getLogger(__name__)
 
     permissions = read_permissions_from_csv(args)
 
@@ -125,3 +121,7 @@ if __name__ == "__main__":
     permission_manager.logger.subscribe(logger)
 
     permission_manager.incremental_load(permissions)
+
+
+if __name__ == "__main__":
+    permission_mgmt()

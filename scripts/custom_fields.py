@@ -11,20 +11,25 @@ import os
 from custom_fields.custom_field_manager import (  # type: ignore[import]
     CustomFieldManager,
 )
+from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import read_csv_file_to_dict  # type: ignore[import]
 
+setup_logging()
+logger = get_logger(__name__)
 
-def main(
-    path_to_custom_datasets_csv: str,
-    path_to_custom_fields_csv: str,
-    check_relations: bool,
-) -> None:
+
+def custome_fields() -> None:
     """Main function to run the custom fields script."""
     # Get host and token from environment variables
     # TODO: add option to load credentials from profile
     # TODO: (refactor) credentials should be handled in one place for the project
     host = os.environ.get("GDC_HOSTNAME")
     token = os.environ.get("GDC_AUTH_TOKEN")
+
+    args: argparse.Namespace = parse_args()
+    path_to_custom_datasets_csv = args.path_to_custom_datasets_csv
+    path_to_custom_fields_csv = args.path_to_custom_fields_csv
+    check_relations: bool = args.check_relations
 
     if not host:
         raise ValueError("GDC_HOSTNAME environment variable is not set.")
@@ -72,8 +77,4 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    args: argparse.Namespace = parse_args()
-    path_to_custom_datasets_csv = args.path_to_custom_datasets_csv
-    path_to_custom_fields_csv = args.path_to_custom_fields_csv
-    check_relations: bool = args.check_relations
-    main(path_to_custom_datasets_csv, path_to_custom_fields_csv, check_relations)
+    custome_fields()
