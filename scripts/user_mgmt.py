@@ -8,7 +8,7 @@ from pathlib import Path
 from gooddata_pipelines import UserIncrementalLoad, UserProvisioner
 from gooddata_sdk.utils import PROFILES_FILE_PATH
 from utils.logger import get_logger, setup_logging  # type: ignore[import]
-from utils.utils import create_provisioner  # type: ignore[import]
+from utils.utils import create_client  # type: ignore[import]
 
 UG_REGEX = r"^(?!\.)[.A-Za-z0-9_-]{1,255}$"
 
@@ -135,7 +135,7 @@ def user_mgmt() -> None:
         args.user_csv, args.delimiter, args.quotechar, args.ug_delimiter
     )
 
-    provisioner = create_provisioner(UserProvisioner, args.profile_config, args.profile)
+    provisioner = create_client(UserProvisioner, args.profile_config, args.profile)
 
     provisioner.logger.subscribe(logger)
 

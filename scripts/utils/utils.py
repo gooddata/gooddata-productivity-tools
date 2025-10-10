@@ -5,11 +5,23 @@ import csv
 import logging
 import os
 from pathlib import Path
-from typing import Type
-
-from gooddata_pipelines.provisioning.provisioning import Provisioning
+from typing import Protocol, Type
 
 logger = logging.getLogger(__name__)
+
+
+class PipelinesClient(Protocol):
+    """Protocol for GoodData Pipelines clients (Provisioners, Managers...)."""
+
+    @classmethod
+    def create(cls, host: str, token: str) -> "PipelinesClient":
+        pass
+
+    @classmethod
+    def create_from_profile(
+        cls, profile: str, profiles_path: Path
+    ) -> "PipelinesClient":
+        pass
 
 
 def read_csv_file_to_dict(
@@ -27,20 +39,20 @@ def read_csv_file_to_dict(
         return list(csv.DictReader(file, delimiter=delimiter, quotechar=quotechar))
 
 
-def create_provisioner(
-    ProvisionerType: Type[Provisioning], profile_config: Path, profile: str
-) -> Provisioning:
-    """Creates GoodData SDK client."""
+def create_client(
+    client_type: Type[PipelinesClient], profile_config: Path, profile: str
+) -> PipelinesClient:
+    """Creates GoodData Pipelines client of given type."""
     gdc_auth_token = os.environ.get("GDC_AUTH_TOKEN")
     gdc_hostname = os.environ.get("GDC_HOSTNAME")
 
     if gdc_hostname and gdc_auth_token:
         logger.info("Using GDC_HOSTNAME and GDC_AUTH_TOKEN envvars.")
-        return ProvisionerType.create(host=gdc_hostname, token=gdc_auth_token)
+        return client_type.create(host=gdc_hostname, token=gdc_auth_token)
 
     if os.path.exists(profile_config):
         logger.info(f"Using GoodData profile {profile} sourced from {profile_config}.")
-        return ProvisionerType.create_from_profile(
+        return client_type.create_from_profile(
             profile=profile, profiles_path=profile_config
         )
 

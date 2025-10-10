@@ -6,46 +6,56 @@ Documentation and usage instructions are located in `docs/CUSTOM_FIELDS.md` file
 """
 
 import argparse
-import os
+from pathlib import Path
 
-from custom_fields.custom_field_manager import (  # type: ignore[import]
-    CustomFieldManager,
+from gooddata_pipelines import (
+    CustomDatasetDefinition,
+    CustomFieldDefinition,
+    LdmExtensionManager,
 )
+from gooddata_sdk.utils import PROFILES_FILE_PATH
 from utils.logger import get_logger, setup_logging  # type: ignore[import]
-from utils.utils import read_csv_file_to_dict  # type: ignore[import]
+from utils.utils import (  # type: ignore[import]
+    create_client,
+    read_csv_file_to_dict,
+)
 
 setup_logging()
 logger = get_logger(__name__)
 
 
-def custome_fields() -> None:
+def custom_fields() -> None:
     """Main function to run the custom fields script."""
-    # Get host and token from environment variables
-    # TODO: add option to load credentials from profile
-    # TODO: (refactor) credentials should be handled in one place for the project
-    host = os.environ.get("GDC_HOSTNAME")
-    token = os.environ.get("GDC_AUTH_TOKEN")
 
     args: argparse.Namespace = parse_args()
     path_to_custom_datasets_csv = args.path_to_custom_datasets_csv
     path_to_custom_fields_csv = args.path_to_custom_fields_csv
     check_relations: bool = args.check_relations
 
-    if not host:
-        raise ValueError("GDC_HOSTNAME environment variable is not set.")
-    if not token:
-        raise ValueError("GDC_AUTH_TOKEN environment variable is not set.")
-
     # Load input data from csv files
-    custom_datasets: list[dict[str, str]] = read_csv_file_to_dict(
+    raw_custom_datasets: list[dict[str, str]] = read_csv_file_to_dict(
         path_to_custom_datasets_csv
     )
-    custom_fields: list[dict[str, str]] = read_csv_file_to_dict(
+
+    custom_datasets = [
+        CustomDatasetDefinition.model_validate(raw_custom_dataset)
+        for raw_custom_dataset in raw_custom_datasets
+    ]
+
+    raw_custom_fields: list[dict[str, str]] = read_csv_file_to_dict(
         path_to_custom_fields_csv
     )
 
+    custom_fields = [
+        CustomFieldDefinition.model_validate(raw_custom_field)
+        for raw_custom_field in raw_custom_fields
+    ]
+
     # Create instance of CustomFieldManager with host and token
-    manager = CustomFieldManager(host, token)
+    manager = create_client(LdmExtensionManager, args.profile_config, args.profile)
+
+    # Subscribe to logs
+    manager.logger.subscribe(logger)
 
     # Process the custom datasets and fields
     manager.process(custom_datasets, custom_fields, check_relations)
@@ -59,11 +69,13 @@ def parse_args():
         type=str,
         help="Path to the CSV file containing custom datasets definitions.",
     )
+
     parser.add_argument(
         "path_to_custom_fields_csv",
         type=str,
         help="Path to the CSV file containing custom fields definitions.",
     )
+
     parser.add_argument(
         "--no-relations-check",
         action="store_false",
@@ -73,8 +85,24 @@ def parse_args():
         + "Boolean, defaults to True.",
     )
 
+    parser.add_argument(
+        "-p",
+        "--profile-config",
+        type=Path,
+        default=PROFILES_FILE_PATH,
+        help="Optional path to GoodData profile config. "
+        f'If no path is provided, "{PROFILES_FILE_PATH}" is used.',
+    )
+
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="default",
+        help='GoodData profile to use. If no profile is provided, "default" is used.',
+    )
+
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    custome_fields()
+    custom_fields()
