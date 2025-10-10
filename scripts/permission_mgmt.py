@@ -11,7 +11,7 @@ from gooddata_pipelines import (
 from gooddata_sdk.utils import PROFILES_FILE_PATH
 from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import (  # type: ignore[import]
-    create_provisioner,
+    create_client,
     read_csv_file_to_dict,
 )
 
@@ -114,7 +114,7 @@ def permission_mgmt():
 
     permissions = read_permissions_from_csv(args)
 
-    permission_manager = create_provisioner(
+    permission_manager = create_client(
         PermissionProvisioner, args.profile_config, args.profile
     )
 

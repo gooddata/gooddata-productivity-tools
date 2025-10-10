@@ -8,7 +8,7 @@ from gooddata_pipelines import WorkspaceIncrementalLoad, WorkspaceProvisioner
 from gooddata_sdk.utils import PROFILES_FILE_PATH
 from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import (  # type: ignore[import]
-    create_provisioner,
+    create_client,
     read_csv_file_to_dict,
 )
 
@@ -133,9 +133,7 @@ def workspace_mgmt():
     validated_workspaces = validate_workspace_data(raw_workspaces, args.inner_delimiter)
 
     # Create provisioner and subscribe to logger
-    provisioner = create_provisioner(
-        WorkspaceProvisioner, args.profile_config, args.profile
-    )
+    provisioner = create_client(WorkspaceProvisioner, args.profile_config, args.profile)
 
     provisioner.logger.subscribe(logger)
 

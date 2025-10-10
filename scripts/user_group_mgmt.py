@@ -22,7 +22,7 @@ from gooddata_pipelines import (
 from gooddata_sdk.utils import PROFILES_FILE_PATH
 from utils.logger import get_logger, setup_logging  # type: ignore[import]
 from utils.utils import (  # type: ignore[import]
-    create_provisioner,
+    create_client,
     read_csv_file_to_dict,
 )
 
@@ -142,7 +142,7 @@ def user_group_mgmt():
     try:
         validate_args(args)
 
-        provisioner = create_provisioner(
+        provisioner = create_client(
             UserGroupProvisioner, args.profile_config, args.profile
         )
 
